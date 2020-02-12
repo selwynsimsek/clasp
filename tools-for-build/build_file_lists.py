@@ -44,6 +44,7 @@ SRC_CORE_FILES = \
         'fp_env',
         'load',
         'bignum',
+        'fastbignum',
         'write_object',
         'write_array',
         'print',
