@@ -43,11 +43,16 @@ CL_PKG_NAME(CorePkg,make-fast-bignum);
 CL_DEFUN FastBignum_sp FastBignum_O::make(const string &value_in_string) {
   GC_ALLOCATE(FastBignum_O, bn); // needs safety checking
   //bn->_value = value_in_string;
-  mp_size_t proportion=(mp_size_t)ceil(log(10)/log(GMP_LIMB_BITS));
-  bn->numberoflimbs=(mp_size_t)(proportion * value_in_string.length());
-  bn->limbs=(mp_limb_t*)GC_MALLOC(bn->numberoflimbs); 
-  bn->numberoflimbs=mpn_set_str(bn->limbs,reinterpret_cast<unsigned char*>(const_cast<char*>(value_in_string.c_str())),bn->numberoflimbs,10);
-  std::cout << ":" << bn->numberoflimbs << ":" << bn->__repr__() << ":";
+  bn->numberoflimbs=(mp_size_t)ceil((log(10)/log(GMP_LIMB_BITS)) * value_in_string.length());
+  bn->limbs=(mp_limb_t*)GC_MALLOC(bn->numberoflimbs );
+  const unsigned char* c_string = reinterpret_cast<const unsigned char*>(value_in_string.c_str());
+  unsigned char* c_out_string= (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
+  for(int i=0;i<value_in_string.length();i++){
+    c_out_string[i]=c_string[i]-'0'; // string not in ASCII. put a bounds check here?
+  }
+  
+  bn->numberoflimbs=mpn_set_str(bn->limbs,c_out_string,value_in_string.length(),10);
+  std::cout << bn->__repr__();
   return ((bn));
 };
 
@@ -277,11 +282,18 @@ Integer_sp FastBignum_O::shift_(gc::Fixnum bits) const {
 string FastBignum_O::__repr__() const {
   stringstream ss;
   //ss << this->_value;
-  auto rawcstring=reinterpret_cast<unsigned char*>(const_cast<char*>((char*)malloc(this->numberoflimbs)));
+  //auto rawcstring=reinterpret_cast<unsigned char*>(const_cast<char*>((char*)malloc(this->numberoflimbs)));
+  unsigned char* rawcstring=(unsigned char*)malloc(this->numberoflimbs);
   mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,this->numberoflimbs); // base 8 for now for testing purposes
+  for(int i=0;i<stringlength;i++){
+    rawcstring[i]+='0';
+  }
   ss << rawcstring;
-  //std::cout << "\\" << rawcstring << "/" ;
+  //std::cout << "\\\n" << rawcstring << "/\n" ;
   free(rawcstring);
+  //for(int i=0;i<this->numberoflimbs;i++){
+    //std::cout << "\nLimb" << i << ": " << this->limbs[i] << "\n";
+  //}
   return ((ss.str()));
 }
 
