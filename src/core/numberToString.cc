@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <clasp/core/numbers.h>
 #include <clasp/core/symbolTable.h>
 #include <clasp/core/bignum.h>
+#include <clasp/core/fastbignum.h>
 #include <clasp/core/numberToString.h>
 #include <clasp/core/wrappers.h>
 
@@ -80,6 +81,40 @@ CL_DEFUN StrNs_sp core__bignum_to_string(StrNs_sp buffer, const Bignum &bn, Fixn
   }
   return buffer;
 }
+
+CL_DEFUN StrNs_sp core__fast_bignum_to_string(StrNs_sp buffer,  FastBignum_sp &bn, Fixnum_sp base) {
+  if (unbox_fixnum(base) < 2 || unbox_fixnum(base) > 36) {
+    QERROR_WRONG_TYPE_NTH_ARG(3, base, Cons_O::createList(cl::_sym_integer, make_fixnum(2), make_fixnum(36)));
+  }
+  if (Str8Ns_sp buffer8 = buffer.asOrNull<Str8Ns_O>() ) {
+    auto repr = bn->__repr__();
+    auto str_size=repr.length();
+    buffer8->ensureSpaceAfterFillPointer(clasp_make_character('\0'),str_size + 2);
+    char *bufferStart = (char*)&(*buffer8)[buffer8->fillPointer()];
+    //mpz_get_str(bufferStart, -unbox_fixnum(base), bn.get_mpz_t());
+    strcpy(bufferStart,repr.c_str());
+    if (bufferStart[str_size - 1] == '\0') {
+      buffer8->fillPointerSet(buffer8->fillPointer()+str_size-1);
+    } else {
+      buffer8->fillPointerSet(buffer8->fillPointer()+str_size);
+    }
+  } else if (StrWNs_sp bufferw = buffer.asOrNull<StrWNs_O>()) {
+    
+    auto repr = bn->__repr__();
+    auto str_size=repr.length();
+    char cpbuffer[str_size+1]; // use a stack allocated array for this
+    bufferw->ensureSpaceAfterFillPointer(clasp_make_character(' '),str_size+1);
+    strcpy(cpbuffer,repr.c_str());
+    for ( size_t idx(0);idx<str_size; ++idx) {
+      bufferw->vectorPushExtend(cpbuffer[idx]);
+    }
+  } else {
+    SIMPLE_ERROR(BF("The buffer for the bignum must be a string with a fill-pointer"));
+  }
+  return buffer;
+}
+
+
 
 static void write_base_prefix(StrNs_sp buffer, int base) {
   if (base == 2) {
@@ -144,7 +179,10 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
     return buffer;
   } else if (Bignum_sp bi = integer.asOrNull<Bignum_O>()) {
     core__bignum_to_string(buffer, bi->get(), base);
-  } else {
+  } else if (FastBignum_sp bi = integer.asOrNull<FastBignum_O>()){
+    core__fast_bignum_to_string(buffer, bi ,base);
+  }
+  else {
     QERROR_WRONG_TYPE_NTH_ARG(2, base, cl::_sym_integer);
   }
   return buffer;

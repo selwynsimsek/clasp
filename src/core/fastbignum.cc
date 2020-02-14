@@ -52,7 +52,7 @@ CL_DEFUN FastBignum_sp FastBignum_O::make(const string &value_in_string) {
   }
   
   bn->numberoflimbs=mpn_set_str(bn->limbs,c_out_string,value_in_string.length(),10);
-  std::cout << bn->__repr__();
+  //std::cout << bn->__repr__();
   return ((bn));
 };
 
