@@ -43,7 +43,7 @@ CL_PKG_NAME(CorePkg,make-fast-bignum);
 CL_DEFUN FastBignum_sp FastBignum_O::make(const string &value_in_string) {
   GC_ALLOCATE(FastBignum_O, bn); // needs safety checking
   //bn->_value = value_in_string;
-  bn->numberoflimbs=(mp_size_t)ceil((log(10)/log(GMP_LIMB_BITS)) * value_in_string.length());
+  bn->numberoflimbs=(mp_size_t)ceil((log(10)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length());
   bn->limbs=(mp_limb_t*)GC_MALLOC(bn->numberoflimbs );
   const unsigned char* c_string = reinterpret_cast<const unsigned char*>(value_in_string.c_str());
   unsigned char* c_out_string= (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
