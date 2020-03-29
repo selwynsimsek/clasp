@@ -208,17 +208,18 @@
       `(block ,block-tag
 	 (let ((,temp-var nil))
 	   (tagbody
-	     (restart-bind
-	       ,(mapcar #'(lambda (datum)
-			    (let*((name (nth 0 datum))
-				  (tag  (nth 1 datum))
-				  (keys (nth 2 datum)))
-			      `(,name #'(lambda (&rest temp)
-					  (setq ,temp-var temp)
-					  (go ,tag))
-				,@keys)))
-			data)
-	       (return-from ,block-tag ,expression))
+              (return-from ,block-tag
+                (restart-bind
+                    ,(mapcar #'(lambda (datum)
+                                 (let*((name (nth 0 datum))
+                                       (tag  (nth 1 datum))
+                                       (keys (nth 2 datum)))
+                                   `(,name #'(lambda (&rest temp)
+                                               (setq ,temp-var temp)
+                                               (go ,tag))
+                                           ,@keys)))
+                      data)
+                  ,expression))
 	     ,@(mapcan #'(lambda (datum)
 			   (let*((tag  (nth 1 datum))
 				 (bvl  (nth 3 datum))
@@ -341,10 +342,10 @@
 	(let* ((normal-return (make-symbol "NORMAL-RETURN"))
 	       (error-return  (make-symbol "ERROR-RETURN")))
 	  `(block ,error-return
-	    (multiple-value-call #'(lambda ,@(cdr no-error-clause))
-	      (block ,normal-return
-		(return-from ,error-return
-		  (handler-case (return-from ,normal-return ,form)
+             (multiple-value-call #'(lambda ,@(cdr no-error-clause))
+               (block ,normal-return
+                 (return-from ,error-return
+                   (handler-case (return-from ,normal-return ,form)
 		     ,@(remove no-error-clause cases)))))))
 	(let* ((tag (gensym))
 	       (var (gensym))
@@ -354,27 +355,28 @@
 	     (let ((,var nil))
 	       (declare (ignorable ,var))
 	       (tagbody
-		 (handler-bind ,(mapcar #'(lambda (annotated-case)
-					    (list (cadr annotated-case)
-						  `#'(lambda (temp)
-                                (declare (ignorable temp))
-						       ,@(if (caddr annotated-case)
-							     `((setq ,var temp)))
-						       (go ,(car annotated-case)))))
-					annotated-cases)
-			       (return-from ,tag ,form))
-		 ,@(mapcan #'(lambda (annotated-case)
-			       (list (car annotated-case)
-				     (let ((body (cdddr annotated-case)))
-				       `(return-from ,tag
-					  ,(if (caddr annotated-case)
-					       `(let ((,(caaddr annotated-case)
-						       ,var))
-						 ,@body)
-					       ;; We must allow declarations!
-					       `(locally ,@body))))))
-			   annotated-cases))))))))
-			   
+                  (return-from ,tag
+                    (handler-bind ,(mapcar #'(lambda (annotated-case)
+                                               (list (cadr annotated-case)
+                                                     `#'(lambda (temp)
+                                                          (declare (ignorable temp))
+                                                          ,@(if (caddr annotated-case)
+                                                                `((setq ,var temp)))
+                                                          (go ,(car annotated-case)))))
+                                    annotated-cases)
+                      ,form))
+                  ,@(mapcan #'(lambda (annotated-case)
+                                (list (car annotated-case)
+                                      (let ((body (cdddr annotated-case)))
+                                        `(return-from ,tag
+                                           ,(if (caddr annotated-case)
+                                                `(let ((,(caaddr annotated-case)
+                                                         ,var))
+                                                   ,@body)
+                                                ;; We must allow declarations!
+                                                `(locally ,@body))))))
+                            annotated-cases))))))))
+
 			   
 ;;; COERCE-TO-CONDITION
 ;;;  Internal routine used in ERROR, CERROR, BREAK, and WARN for parsing the
@@ -703,10 +705,10 @@ This is due to either a problem in foreign code (e.g., C++), or a bug in Clasp i
 (define-condition floating-point-invalid-operation (arithmetic-error) ())
 
 (define-condition core:do-not-funcall-special-operator (undefined-function)
-  ((operator :initarg :operator :reader operator))
+  ((operator :initarg :operator :reader cell-error-name))
   (:report (lambda (condition stream)
              (format stream "Cannot call special operator as function: ~s"
-                     (operator condition)))))
+                     (cell-error-name condition)))))
 
 (define-condition core:wrong-number-of-arguments (program-error)
   (;; may be NIL if this is called from the interpreter and we don't know anything

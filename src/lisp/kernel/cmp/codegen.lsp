@@ -39,7 +39,9 @@ Could return more functions that provide lambda-list for swank for example"
       (cmp-log "new-body -> %s%N" new-body)
 ;;;    (bformat *error-output* "old  -> %s %s %s %s%N" lambda-list-handler declares docstring code)
 ;;;    (bformat *error-output* "new-body -> %s%N" new-body)
-      (let* ((name (core:extract-lambda-name-from-declares declares (or given-name 'cl:lambda)))
+      (let* ((name (core:extract-lambda-name-from-declares
+                    declares (or given-name
+                                 `(cl:lambda ,(lambda-list-for-name lambda-list)))))
              (fn (with-new-function (fn fn-env result
                                         :function-name name
                                         :parent-env env-around-lambda
@@ -81,6 +83,25 @@ Could return more functions that provide lambda-list for swank for example"
         (if (null name) (error "The lambda name is nil"))
         (values fn name lambda-list)))))
 
+;;; Given a lambda list, return a lambda list suitable for display purposes.
+;;; This means only the external interface is required.
+;;; No default values, no -p variables, no &aux.
+(defun lambda-list-for-name (raw-lambda-list)
+  (multiple-value-bind (req opt rest keyflag keys aok-p)
+      (core:process-lambda-list raw-lambda-list 'function)
+    `(,@(rest req)
+      ,@(unless (zerop (first opt)) '(&optional))
+      ,@(let ((optnames nil))
+          (do ((opts (rest opt) (cdddr opts)))
+              ((null opts) (nreverse optnames))
+            (push (first opts) optnames)))
+      ,@(when rest `(&rest ,rest))
+      ,@(when keyflag '(&key))
+      ,@(let ((keykeys nil))
+          (do ((key (rest keys) (cddddr key)))
+              ((null key) keykeys)
+            (push (first key) keykeys)))
+      ,@(when aok-p '(&allow-other-keys)))))
 
 (defun compile-lambda-function (lambda-or-lambda-block &optional env &key (linkage 'llvm-sys:internal-linkage))
   "Compile a lambda form and return an llvm-ir function that evaluates it.
@@ -130,6 +151,12 @@ then compile it and return (values compiled-llvm-function lambda-name)"
       ((consp name) (bformat nil "%s" name))
       (t (error "Add support for function-name-from-lambda with ~a as arg" name))))
 
+(defun potentially-save-module ()
+  (when *save-module-for-disassemble*
+    (setq *saved-module-from-clasp-jit*
+          (with-output-to-string (*standard-output*)
+            (llvm-sys:dump-module *the-module* *standard-output*)))))
+
 (defun compile-to-module (&key definition env pathname (linkage 'llvm-sys:internal-linkage) linkage-name)
   (with-lexical-variable-optimizer (t)
       (multiple-value-bind (fn function-kind wrapped-env lambda-name)
@@ -141,6 +168,7 @@ then compile it and return (values compiled-llvm-function lambda-name)"
               (values llvm-function-from-lambda :function env lambda-name)))
         (or lambda-name (error "lambda-name is nil - this shouldn't happen"))
         (or fn (error "There was no function returned by compile-lambda-function outer: ~a" fn))
+        (potentially-save-module)
         (cmp-log "fn --> %s%N" fn)
         (cmp-log-dump-module *the-module*)
         (values fn function-kind wrapped-env lambda-name))))

@@ -80,6 +80,7 @@ THE SOFTWARE.
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Mangler.h>
 #include <llvm/Transforms/Instrumentation.h>
+#include <llvm/Transforms/Instrumentation/ThreadSanitizer.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
@@ -125,6 +126,7 @@ THE SOFTWARE.
 #include <clasp/core/compiler.h>
 #include <clasp/core/bformat.h>
 #include <clasp/core/pointer.h>
+#include <clasp/core/fli.h>
 #include <clasp/core/array.h>
 #include <clasp/gctools/gc_interface.fwd.h>
 #include <clasp/llvmo/debugInfoExpose.h>
@@ -457,6 +459,19 @@ CL_EXTERN_DEFMETHOD(TargetPassConfig_O, &llvm::TargetPassConfig::setEnableTailMe
 
 namespace llvmo {
 
+struct Safe_raw_pwrite_stream {
+  llvm::raw_pwrite_stream* ostreamP;
+  Safe_raw_pwrite_stream() : ostreamP(NULL) {};
+  void set_stream(llvm::raw_pwrite_stream* s) { ostreamP = s;};
+  llvm::raw_pwrite_stream* get_stream() const { return ostreamP; };
+  ~Safe_raw_pwrite_stream() {
+    if (ostreamP) {
+      delete ostreamP;
+      ostreamP = NULL;
+    }
+  }
+};
+
 CL_LISPIFY_NAME("addPassesToEmitFileAndRunPassManager");
 CL_DEFMETHOD core::T_sp TargetMachine_O::addPassesToEmitFileAndRunPassManager(PassManager_sp passManager,
                                                                         core::T_sp stream,
@@ -466,45 +481,41 @@ CL_DEFMETHOD core::T_sp TargetMachine_O::addPassesToEmitFileAndRunPassManager(Pa
   if (stream.nilp()) {
     SIMPLE_ERROR(BF("You must pass a valid stream"));
   }
-  llvm::raw_pwrite_stream *ostreamP;
+  Safe_raw_pwrite_stream ostream;
   llvm::SmallString<1024> stringOutput;
   bool stringOutputStream = false;
   if (core::StringOutputStream_sp sos = stream.asOrNull<core::StringOutputStream_O>()) {
-    ostreamP = new llvm::raw_svector_ostream(stringOutput);
+    ostream.set_stream(new llvm::raw_svector_ostream(stringOutput));
     stringOutputStream = true;
   } else if ( stream == kw::_sym_simple_vector_byte8 ) {
     (void)sos;
-    ostreamP = new llvm::raw_svector_ostream(stringOutput);
+    ostream.set_stream(new llvm::raw_svector_ostream(stringOutput));
   } else if (core::IOFileStream_sp fs = stream.asOrNull<core::IOFileStream_O>()) {
-    ostreamP = new llvm::raw_fd_ostream(fs->fileDescriptor(), false, true);
+    ostream.set_stream(new llvm::raw_fd_ostream(fs->fileDescriptor(), false, true));
   } else if (core::IOStreamStream_sp iostr = stream.asOrNull<core::IOStreamStream_O>()) {
     FILE *f = iostr->file();
-    ostreamP = new llvm::raw_fd_ostream(fileno(f), false, true);
+    ostream.set_stream(new llvm::raw_fd_ostream(fileno(f), false, true));
   } else {
     SIMPLE_ERROR(BF("Illegal file type %s for addPassesToEmitFileAndRunPassManager") % _rep_(stream));
   }
   llvm::SmallString<1024> dwo_stringOutput;
-  llvm::raw_pwrite_stream *dwo_ostreamP;
+  Safe_raw_pwrite_stream dwo_ostream;
   bool dwo_stringOutputStream = false;
   if (core::StringOutputStream_sp sos = dwo_stream.asOrNull<core::StringOutputStream_O>()) {
     (void)sos;
-    dwo_ostreamP = new llvm::raw_svector_ostream(dwo_stringOutput);
+    dwo_ostream.set_stream(new llvm::raw_svector_ostream(dwo_stringOutput));
     dwo_stringOutputStream = true;
   } else if (core::IOFileStream_sp fs = dwo_stream.asOrNull<core::IOFileStream_O>()) {
-    dwo_ostreamP = new llvm::raw_fd_ostream(fs->fileDescriptor(), false, true);
+    dwo_ostream.set_stream(new llvm::raw_fd_ostream(fs->fileDescriptor(), false, true));
   } else if (core::IOStreamStream_sp iostr = dwo_stream.asOrNull<core::IOStreamStream_O>()) {
     FILE *f = iostr->file();
-    dwo_ostreamP = new llvm::raw_fd_ostream(fileno(f), false, true);
+    dwo_ostream.set_stream(new llvm::raw_fd_ostream(fileno(f), false, true));
   } else if (dwo_stream.nilp()) {
-    dwo_ostreamP = NULL;
+    // nothing
   } else {
     SIMPLE_ERROR(BF("Illegal file type %s for addPassesToEmitFileAndRunPassManager") % _rep_(dwo_stream));
   }
-  if (this->wrappedPtr()->addPassesToEmitFile(*passManager->wrappedPtr(), *ostreamP, dwo_ostreamP, FileType, true, nullptr)) {
-    delete ostreamP;
-    if (dwo_ostreamP) {
-      delete dwo_ostreamP;
-    }
+  if (this->wrappedPtr()->addPassesToEmitFile(*passManager->wrappedPtr(), *ostream.get_stream(), dwo_ostream.get_stream(), FileType, true, nullptr)) {
     SIMPLE_ERROR(BF("Could not generate file type"));
   }
   passManager->wrappedPtr()->run(*module->wrappedPtr());
@@ -754,7 +765,7 @@ CL_EXTERN_DEFUN(( std::string(*)(llvm::StringRef str))&llvm::Triple::normalize);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_DragonFly);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_FreeBSD);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_IOS);
-  SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_KFreeBSD);
+//  SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_KFreeBSD);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_Linux);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_Lv2);
   SYMBOL_EXPORT_SC_(LlvmoPkg, OSType_MacOSX);
@@ -779,7 +790,7 @@ CL_EXTERN_DEFUN(( std::string(*)(llvm::StringRef str))&llvm::Triple::normalize);
   CL_VALUE_ENUM(_sym_OSType_DragonFly, llvm::Triple::DragonFly);
   CL_VALUE_ENUM(_sym_OSType_FreeBSD, llvm::Triple::FreeBSD);
   CL_VALUE_ENUM(_sym_OSType_IOS, llvm::Triple::IOS);
-  CL_VALUE_ENUM(_sym_OSType_KFreeBSD, llvm::Triple::KFreeBSD);
+//  CL_VALUE_ENUM(_sym_OSType_KFreeBSD, llvm::Triple::KFreeBSD);
   CL_VALUE_ENUM(_sym_OSType_Linux, llvm::Triple::Linux);
   CL_VALUE_ENUM(_sym_OSType_Lv2, llvm::Triple::Lv2);
   CL_VALUE_ENUM(_sym_OSType_MacOSX, llvm::Triple::MacOSX);
@@ -3312,6 +3323,8 @@ CL_EXTERN_DEFUN( &llvm::createMemDepPrinter);
   CL_LISPIFY_NAME(InitializeNativeTarget);
   CL_EXTERN_DEFUN( &llvm::InitializeNativeTarget);
 
+CL_LISPIFY_NAME(createThreadSanitizerLegacyPassPass);
+CL_EXTERN_DEFUN(&llvm::createThreadSanitizerLegacyPassPass);
   CL_LISPIFY_NAME(createAggressiveDCEPass);
   CL_EXTERN_DEFUN( &llvm::createAggressiveDCEPass);
   CL_LISPIFY_NAME(createCFGSimplificationPass);
@@ -3596,7 +3609,7 @@ void dumpObjectFile(size_t num, const char* start, size_t size) {
 //
 // Using interface described here:
 //     https://sourceware.org/gdb/current/onlinedocs/gdb/JIT-Interface.html#JIT-Interface
-
+#if 0
 typedef enum
 {
   JIT_NOACTION = 0,
@@ -3628,8 +3641,24 @@ void __attribute__((noinline)) __jit_debug_register_code () { }
 /* Make sure to specify the version statically, because the
    debugger may check the version before we can set it.  */
 struct jit_descriptor __jit_debug_descriptor = { 1, 0, 0, 0 };
+#endif
+
 mp::Mutex* global_jit_descriptor = NULL;
 
+
+void register_object_file_with_gdb(const llvm::object::ObjectFile& Obj, const llvm::RuntimeDyld::LoadedObjectInfo &loadedObjectInfo) {
+//  printf("%s:%d:%s  ObjectFile@%p\n", __FILE__, __LINE__, __FUNCTION__, &Obj);
+  uint64_t Key =
+    static_cast<uint64_t>(reinterpret_cast<uintptr_t>(Obj.getData().data()));
+  if (global_jit_descriptor==NULL) {
+    global_jit_descriptor = new mp::Mutex(JITGDBIF_NAMEWORD);
+  }
+  mp::RAIIReadWriteLock<mp::Mutex> safe_lock(*global_jit_descriptor);
+  llvm::JITEventListener* listener = JITEventListener::createGDBRegistrationListener();
+  listener->notifyObjectLoaded(Key, Obj, loadedObjectInfo);
+}
+
+#if 0
 void register_object_file_with_gdb(void* object_file, size_t size)
 {
     if (global_jit_descriptor==NULL) {
@@ -3648,9 +3677,12 @@ void register_object_file_with_gdb(void* object_file, size_t size)
     }
     __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
     __jit_debug_register_code();
-    printf("%s:%d Registered object file at %p size: %lu\n", __FILE__, __LINE__, object_file, size );
+//    printf("%s:%d Registered object file at %p size: %lu\n", __FILE__, __LINE__, object_file, size );
     global_jit_descriptor->unlock();
 };
+#endif
+
+
 
 };
 SYMBOL_EXPORT_SC_(LlvmoPkg,make_StkSizeRecord);
@@ -4088,7 +4120,7 @@ CL_DEFUN core::Function_sp llvm_sys__jitFinalizeReplFunction(ClaspJIT_sp jit, co
   }
   core::T_O* replPtrRaw = NULL;
   if (startupPtr && startupPtr->ptr()) {
-    fnStartUp startup = reinterpret_cast<fnStartUp>(gc::As_unsafe<core::Pointer_sp>(startupPtr)->ptr());
+    T_OStartUp startup = reinterpret_cast<T_OStartUp>(gc::As_unsafe<core::Pointer_sp>(startupPtr)->ptr());
 //    printf("%s:%d:%s About to invoke startup @p=%p\n", __FILE__, __LINE__, __FUNCTION__, (void*)startup);
     replPtrRaw = startup(initialData.raw_());
     if (replPtrRaw==NULL) {
@@ -4218,6 +4250,7 @@ ClaspJIT_O::ClaspJIT_O() {
   this->LinkLayer->setNotifyLoaded( [&] (VModuleKey, const llvm::object::ObjectFile &Obj, const llvm::RuntimeDyld::LoadedObjectInfo &loadedObjectInfo) {
 //                                      printf("%s:%d  NotifyLoaded ObjectFile@%p\n", __FILE__, __LINE__, &Obj);
                                       save_symbol_info(Obj,loadedObjectInfo);
+                                      register_object_file_with_gdb(Obj,loadedObjectInfo);
                                     });
 #endif
   auto JTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
@@ -4247,8 +4280,7 @@ ClaspJIT_O::~ClaspJIT_O()
   printf("%s:%d Shutdown the ClaspJIT\n", __FILE__, __LINE__);
 }
 
-
-CL_DEFMETHOD core::Pointer_sp ClaspJIT_O::lookup(JITDylib& dylib, const std::string& Name) {
+bool ClaspJIT_O::do_lookup(JITDylib& dylib, const std::string& Name, void*& ptr) {
 //  printf("%s:%d:%s Name = %s\n", __FILE__, __LINE__, __FUNCTION__, Name.c_str());
   llvm::ExitOnError ExitOnErr;
 //  llvm::ArrayRef<llvm::orc::JITDylib*>  dylibs(&this->ES->getMainJITDylib());
@@ -4267,94 +4299,48 @@ CL_DEFMETHOD core::Pointer_sp ClaspJIT_O::lookup(JITDylib& dylib, const std::str
   llvm::Expected<llvm::JITEvaluatedSymbol> symbol = this->ES->lookup(llvm::orc::JITDylibSearchList({{&dylib,true}}),
                                                                      this->ES->intern(mangledName));   
   if (!symbol) {
-    llvm::handleAllErrors(symbol.takeError(), [](const llvm::ErrorInfoBase &E) {
-                                                errs() << "Symbolizer failed to get line: " << E.message() << "\n";
-                                              });
-#if 0
-    std::stringstream ss;
-    ss << __FILE__ <<":" <<__LINE__ << ":  " << symbol.takeError().message();
-    printf("%s\n", ss.str().c_str());
-    abort();
-#endif
+      return false;
   }
 //  printf("%s:%d:%s !!symbol -> %d  symbol->getAddress() -> %p\n", __FILE__, __LINE__, __FUNCTION__, !!symbol, (void*)symbol->getAddress());
-  return core::Pointer_O::create((void*)symbol->getAddress());
+  ptr = (void*)symbol->getAddress();
+  return true;
 }
+
+ CL_DEFMETHOD core::Pointer_sp ClaspJIT_O::lookup(JITDylib& dylib, const std::string& Name) {
+     void* ptr;
+     bool found = this->do_lookup(dylib,Name,ptr);
+     if (!found) {
+         SIMPLE_ERROR(BF("Could not find pointer for name %s") % Name);
+     }
+     return core::Pointer_O::create(ptr);
+ }
+
+
+CL_DEFMETHOD core::T_sp ClaspJIT_O::lookup_all_dylibs(const std::string& name) {
+    core::T_sp jcur = _lisp->_Roots._JITDylibs.load();
+    void* ptr;
+    while (jcur.consp()) {
+        JITDylib_sp jitdylib = gc::As<JITDylib_sp>(CONS_CAR(jcur));
+        JITDylib& jd = *jitdylib->wrappedPtr();
+        bool found = this->do_lookup(jd,name,ptr);
+        if (found) {
+            clasp_ffi::ForeignData_sp sp_sym = clasp_ffi::ForeignData_O::create(ptr);
+            sp_sym->set_kind( kw::_sym_clasp_foreign_data_kind_symbol_pointer );
+            return sp_sym;
+        }
+        jcur = CONS_CDR(jcur);
+    }
+    return _Nil<core::T_O>();
+}
+            
+        
+    
+
 
 CL_DEFMETHOD void ClaspJIT_O::addIRModule(Module_sp module, ThreadSafeContext_sp context) {
   std::unique_ptr<llvm::Module> umodule(module->wrappedPtr());
   llvm::ExitOnError ExitOnErr;
   ExitOnErr(this->CompileLayer->add(this->ES->getMainJITDylib(),llvm::orc::ThreadSafeModule(std::move(umodule),*context->wrappedPtr())));
-}
-
-void ClaspJIT_O::saveObjectFileInfo(const char* objectFileStart, size_t objectFileSize,
-                                    const char* faso_filename,
-                                    size_t faso_index,
-                                    size_t objectID )
-{
-  ObjectFileInfo* ofi = new ObjectFileInfo();
-  ofi->_faso_filename = faso_filename;
-  ofi->_faso_index = faso_index;
-  ofi->_objectID = objectID;
-  ofi->_object_file_start = (void*)objectFileStart;
-  ofi->_object_file_size = objectFileSize;
-  ofi->_text_segment_start = my_thread->_text_segment_start;
-  ofi->_text_segment_size = my_thread->_text_segment_size;
-  ofi->_text_segment_SectionID = my_thread->_text_segment_SectionID;
-  ofi->_stackmap_start = (void*)my_thread->_stackmap;
-  ofi->_stackmap_size = my_thread->_stackmap_size;
-  ObjectFileInfo* expected;
-  ObjectFileInfo* current;
-  do {
-    current = this->_ObjectFiles.load();
-    ofi->_next = current;
-    expected = current;
-    this->_ObjectFiles.compare_exchange_strong(expected,ofi);
-  } while (expected!=current);
-}
-
-CL_DOCSTRING(R"doc(Identify the object file whose generated code range containss the instruction-pointer.
-Return NIL if none or (values offset-from-start object-file). The index-from-start is the number of bytes of the instruction-pointer from the start of the code range.)doc");
-CL_DEFMETHOD core::T_mv ClaspJIT_O::objectFileForInstructionPointer(core::Pointer_sp instruction_pointer, bool verbose)
-{
-  ObjectFileInfo* cur = this->_ObjectFiles.load();
-  size_t count;
-  char* ptr = (char*)instruction_pointer->ptr();
-  while (cur) {
-    if (ptr>=(char*)cur->_text_segment_start&&ptr<((char*)cur->_text_segment_start+cur->_text_segment_size)) {
-      // Here is the info for the SectionedAddress
-      uintptr_t sectionID = cur->_text_segment_SectionID;
-      uintptr_t offset = (ptr - (char*)cur->_text_segment_start);
-      core::T_sp sectioned_address = SectionedAddress_O::create(sectionID, offset);
-      // now the object file
-      llvm::StringRef sbuffer((const char*)cur->_object_file_start, cur->_object_file_size);
-      llvm::StringRef name("object-file-buffer");
-      std::unique_ptr<llvm::MemoryBuffer> mbuf = llvm::MemoryBuffer::getMemBuffer(sbuffer, name, false);
-      llvm::MemoryBufferRef mbuf_ref(*mbuf);
-      auto eom = llvm::object::ObjectFile::createObjectFile(mbuf_ref);
-      if (!eom)
-        SIMPLE_ERROR(BF("Problem in objectFileForInstructionPointer"));
-      ObjectFile_sp object_file = ObjectFile_O::create(eom->release());
-      if (verbose) {
-        core::write_bf_stream(BF("faso-file: %s  object-file-position: %lu  objectID: %lu\n") % cur->_faso_filename % cur->_faso_index % cur->_objectID);
-        core::write_bf_stream(BF("SectionID: %lu    memory offset: %lu\n") % sectionID % offset );
-      }
-      return Values(sectioned_address,object_file);
-    }
-    cur = cur->_next;
-    count++;
-  }
-  return Values(_Nil<core::T_O>());
-}
-
-CL_DEFMETHOD size_t ClaspJIT_O::numberOfObjectFiles() {
-  ObjectFileInfo* cur = this->_ObjectFiles.load();
-  size_t count;
-  while (cur) {
-    cur = cur->_next;
-    count++;
-  }
-  return count;
 }
 
 
@@ -4379,14 +4365,14 @@ void ClaspJIT_O::addObjectFile(const char* rbuffer, size_t bytes,size_t startupI
   core::Pointer_sp startup = this->lookup(dylib,startup_name);
   if (print) core::write_bf_stream(BF("%s:%d startup address %p\n") % __FILE__ % __LINE__ % _rep_(startup));
   // Now the my_thread thread local data structure will contain information about the new linked object file.
-  this->saveObjectFileInfo(rbuffer,bytes,faso_filename,faso_index,startupID);
+  save_object_file_info(rbuffer,bytes,faso_filename,faso_index,startupID);
   
   // Lookup the address of the ObjectFileStartUp function and invoke it
   void* thread_local_startup = startup->ptr();
   my_thread->_ObjectFileStartUp = NULL;
   if (thread_local_startup) {
     if (print) core::write_bf_stream(BF("%s:%d thread_local_startup -> %p\n") % __FILE__ % __LINE__ % (void*)thread_local_startup);
-    fnStartUp startup = reinterpret_cast<fnStartUp>(thread_local_startup);
+    T_OStartUp startup = reinterpret_cast<T_OStartUp>(thread_local_startup);
     core::T_O* replPtrRaw = startup(NULL);
   } else {
     if (print) core::write_bf_stream(BF("No startup function was defined\n"));
@@ -4408,16 +4394,16 @@ CL_DEFMETHOD JITDylib_sp ClaspJIT_O::createAndRegisterJITDylib(const std::string
   JITDylib& dylib(this->ES->createJITDylib(name));
   dylib.setGenerator(llvm::cantFail(ClaspDynamicLibrarySearchGenerator::GetForCurrentProcess(this->_DataLayout->getGlobalPrefix())));
   JITDylib_sp dylib_sp = core::RP_Create_wrapped<JITDylib_O>(&dylib);
-#if 0
-  Cons_sp cell = core::Cons_O::create(dylib_sp,_Nil<core::T_O>());
-  T_sp expected;
-  T_sp current;
+#if 1
+  core::Cons_sp cell = core::Cons_O::create(dylib_sp,_Nil<core::T_O>());
+  core::T_sp expected;
+  core::T_sp current;
   // Use CAS to push the new JITDylib into the list of JITDylibs.
   do {
-    current = _lisp->Roots._JITDylibs.load();
+    current = _lisp->_Roots._JITDylibs.load();
     expected = current;
     cell->rplacd(current);
-    _lisp->Roots._JITDylibs.compare_exchange_strong(expected,gc::As_unsafe<core::T_sp>(cell));
+    _lisp->_Roots._JITDylibs.compare_exchange_strong(expected,gc::As_unsafe<core::T_sp>(cell));
   } while (expected != current);
 #endif
   return dylib_sp;

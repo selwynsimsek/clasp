@@ -48,7 +48,7 @@
               (default form env))
              ;; function call
              ((and (fboundp op)
-                   (not (special-operator-p op)))
+                   (not (treat-as-special-operator-p op)))
               (apply op (map-recurse args env)))
              ;; operation
              (t
@@ -121,7 +121,13 @@
                    until (cst:null cstl)
                    collect (recurse (cst:first cstl) env)))
            (eval-progn (list-cst env)
-             (loop for cstl = list-cst then next
+             (loop with result = nil
+                   for cstl = list-cst
+                     then (cst:rest cstl)
+                   until (cst:null cstl)
+                   do (setf result (recurse (cst:first cstl) env))
+                   finally (return result))
+             #+(or)(loop for cstl = list-cst then next
                    for cst = (cst:first cstl)
                    for next = (cst:rest cstl)
                    if (not (cst:null next))
@@ -208,7 +214,7 @@
                      ;; catch, throw, progv, unwind-protect macroexpand,
                      ;; and also handling them worse is probably okay.
                      (otherwise
-                      (if (and (fboundp op) (not (special-operator-p op)))
+                      (if (and (fboundp op) (not (treat-as-special-operator-p op)))
                           (apply (fdefinition op) (map-recurse args env))
                           (default cst env)))))))))))))
 

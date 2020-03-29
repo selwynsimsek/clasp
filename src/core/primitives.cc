@@ -61,7 +61,7 @@ THE SOFTWARE.
 #include <clasp/core/symbolTable.h>
 //#include <clasp/core/clcenv.h>
 #include <clasp/core/null.h>
-//#include "debugger.h"
+#include <clasp/core/debugger.h>
 #include <clasp/core/ql.h>
 #include <clasp/core/numbers.h>
 #include <clasp/core/evaluator.h>
@@ -1032,6 +1032,8 @@ CL_DEFUN List_sp cl__read_delimited_list(Character_sp chr, T_sp input_stream_des
   return result;
 }
 
+SYMBOL_EXPORT_SC_(CorePkg, STARread_hookSTAR);
+
 CL_LAMBDA(&optional input-stream-designator (eof-error-p t) eof-value recursive-p);
 CL_DECLARE();
 CL_DOCSTRING("read an object from a stream - see CLHS");
@@ -1044,9 +1046,14 @@ CL_DEFUN T_sp cl__read(T_sp input_stream_designator, T_sp eof_error_p, T_sp eof_
   }
   DynamicScopeManager scope(_sym_STARpreserve_whitespace_pSTAR, _lisp->_boolean(preserve_whitespace));
   T_sp sin = coerce::inputStreamDesignator(input_stream_designator);
-  return read_lisp_object(sin, eof_error_p.isTrue(), eof_value, recursive_p.notnilp());
+  if (_sym_STARread_hookSTAR->boundP() &&
+      _sym_STARread_hookSTAR->symbolValue().notnilp())
+    return eval::funcall(_sym_STARread_hookSTAR->symbolValue(), sin ,eof_error_p, eof_value, recursive_p);
+  else
+    return read_lisp_object(sin, eof_error_p.isTrue(), eof_value, recursive_p.notnilp());
 }
 
+SYMBOL_EXPORT_SC_(CorePkg, STARread_preserving_whitespace_hookSTAR);
 CL_LAMBDA(&optional input-stream-designator (eof-error-p t) eof-value recursive-p);
 CL_DECLARE();
 CL_DOCSTRING("read an object from a stream while preserving whitespace - see CLHS");
@@ -1059,7 +1066,11 @@ CL_DEFUN T_sp cl__read_preserving_whitespace(T_sp input_stream_designator, T_sp 
   }
   DynamicScopeManager scope(_sym_STARpreserve_whitespace_pSTAR, _lisp->_boolean(preserve_whitespace));
   T_sp sin = coerce::inputStreamDesignator(input_stream_designator);
-  return read_lisp_object(sin, eof_error_p.isTrue(), eof_value, recursive_p.isTrue());
+  if (_sym_STARread_preserving_whitespace_hookSTAR->boundP() &&
+      _sym_STARread_preserving_whitespace_hookSTAR->symbolValue().notnilp())
+    return eval::funcall(_sym_STARread_preserving_whitespace_hookSTAR->symbolValue(), sin ,eof_error_p, eof_value, recursive_p);
+  else
+    return read_lisp_object(sin, eof_error_p.isTrue(), eof_value, recursive_p.isTrue());
 }
 
 /* -------------------------------------------------------- */
@@ -1733,184 +1744,6 @@ CL_DEFUN InvocationHistoryFrameIterator_sp core__get_invocation_history_frame_ne
 }
 };
 
-extern "C" void c_bt();
-
-namespace core {
-CL_LAMBDA();
-CL_DECLARE();
-CL_DOCSTRING("ihsBacktraceNoArgs");
-CL_DEFUN void core__ihs_backtrace_no_args() {
-  c_bt(); // core__ihs_backtrace(_lisp->_true(), _Nil<core::T_O>());
-};
-
-CL_LAMBDA();
-CL_DECLARE();
-CL_DOCSTRING("ihsTop");
-CL_DEFUN int core__ihs_top() {
-  InvocationHistoryFrameIterator_sp top = core__get_invocation_history_frame_top();
-  if (!top->isValid()) return 0;
-  return top->index();
-};
-
-CL_LAMBDA(cur);
-CL_DECLARE();
-CL_DOCSTRING("ihsPrev");
-CL_DEFUN int core__ihs_prev(int idx) {
-  InvocationHistoryFrameIterator_sp prev = core__get_invocation_history_frame_prev(idx);
-  if (!prev->isValid())
-    return 0;
-  return prev->index();
-};
-
-CL_LAMBDA(cur);
-CL_DECLARE();
-CL_DOCSTRING("ihsNext");
-CL_DEFUN int core__ihs_next(int idx) {
-  InvocationHistoryFrameIterator_sp next = core__get_invocation_history_frame_next(idx);
-  if (!next->isValid())
-    return 0;
-  return next->index();
-}
-
-CL_LAMBDA(arg);
-CL_DECLARE();
-CL_DOCSTRING("ihsFun: return the function in the invocation history stack at i");
-CL_DEFUN T_sp core__ihs_fun(int idx) {
-  InvocationHistoryFrameIterator_sp cur = core__get_invocation_history_frame(idx);
-  if (!cur->isValid()) return _Nil<T_O>();
-  return cur->function();
-};
-
-CL_LAMBDA(arg);
-CL_DECLARE();
-CL_DOCSTRING("ihsArguments: return the arguments to the function in the invocation history stack at i");
-CL_DEFUN T_sp core__ihs_arguments(int idx) {
-  InvocationHistoryFrameIterator_sp cur = core__get_invocation_history_frame(idx);
-  if (!cur->isValid())
-    return _Nil<T_O>();
-  return cur->arguments();
-};
-
-CL_LAMBDA(cur);
-CL_DECLARE();
-CL_DOCSTRING("ihsEnv");
-CL_DEFUN T_sp core__ihs_env(int idx) {
-  InvocationHistoryFrameIterator_sp cur = core__get_invocation_history_frame(idx);
-  return _Nil<T_O>();
-#if 0
-  if (!cur->isValid())
-    return _Nil<T_O>();
-  return cur->environment();
-#endif
-};
-
-CL_LAMBDA(cur);
-CL_DECLARE();
-CL_DOCSTRING("ihsBds");
-CL_DEFUN int core__ihs_bds(int idx) {
-  return 0;
-#if 0
-  InvocationHistoryFrameIterator_sp cur = core__get_invocation_history_frame(idx);
-  if (!cur->isValid())
-    return 0;
-  return cur->frame()->bds();
-#endif
-};
-
-CL_LAMBDA();
-CL_DECLARE();
-CL_DOCSTRING("ihsCurrentFrame");
-CL_DEFUN int core__ihs_current_frame() {
-  T_sp cf = _sym_STARihsCurrentSTAR->symbolValue();
-  if (cf.nilp()) {
-    int icf = core__ihs_top();
-    return core__set_ihs_current_frame(icf);
-  }
-  int icf = unbox_fixnum(gc::As<Fixnum_sp>(cf));
-  if (icf < 0) {
-    _sym_STARihsCurrentSTAR->setf_symbolValue(make_fixnum(icf));
-    return 0;
-  }
-  if (icf >= core__ihs_top()) {
-    _sym_STARihsCurrentSTAR->setf_symbolValue(make_fixnum(core__ihs_top()));
-    return core__ihs_top();
-  }
-  return icf;
-}
-
-CL_LAMBDA();
-CL_DECLARE();
-CL_DOCSTRING("setIhsCurrentFrame");
-CL_DEFUN int core__set_ihs_current_frame(int icf) {
-  if (icf < 0)
-    icf = 0;
-  else if (icf >= core__ihs_top())
-    icf = core__ihs_top();
-  _sym_STARihsCurrentSTAR->setf_symbolValue(make_fixnum(icf));
-  return icf;
-}
-
-
-CL_DEFUN VaList_sp core__vaslist_rewind(VaList_sp v)
-{
-  Vaslist* vaslist0 = &*v;
-  Vaslist* vaslist1 = &vaslist0[1];
-  memcpy(vaslist0,vaslist1,sizeof(Vaslist));
-  return v;
-}
-
-CL_DEFUN size_t core__vaslist_length(VaList_sp v)
-{
-//  printf("%s:%d va_list length %" PRu "\n", __FILE__, __LINE__, v->remaining_nargs());
-  return v->remaining_nargs();
-}
-
-CL_DEFUN T_sp core__vaslist_pop(VaList_sp v)
-{
-  return v->next_arg();
-}
-
-CL_DEFUN bool core__vaslistp(T_sp o)
-{
-  return o.valistp();
-}
-
-CL_DEFUN List_sp core__list_from_va_list(VaList_sp vorig)
-{
-  Vaslist valist_copy(*vorig);
-  VaList_sp valist(&valist_copy);
-
-  ql::list l;
-  size_t nargs = valist->remaining_nargs();
-//  printf("%s:%d in %s  nargs=%zu\n", __FILE__, __LINE__, __FUNCTION__, nargs);
-  for ( size_t i=0; i<nargs; ++i ) {
-    T_sp one = valist->next_arg();
-    l << one;
-  }
-  T_sp result = l.cons();
-  return result;
-}
-
-CL_LAMBDA(&optional (out t) msg);
-CL_DECLARE();
-CL_DOCSTRING("ihsBacktrace");
-CL_DEFUN T_sp core__ihs_backtrace(T_sp outputDesignator, T_sp msg) {
-  T_sp ss;
-  if (outputDesignator.nilp()) {
-    ss = clasp_make_string_output_stream();
-  } else {
-    ss = coerce::outputStreamDesignator(outputDesignator);
-  }
-  if (!msg.nilp()) {
-    clasp_writeln_string(((BF("\n%s") % _rep_(msg)).str()), ss);
-  }
-  clasp_writeln_string((BF("%s") % backtrace_as_string()).str(),ss);
-  if (outputDesignator.nilp()) {
-    return cl__get_output_stream_string(ss);
-  }
-  return _Nil<T_O>();
-};
-};
 
 namespace core {
 
@@ -1919,7 +1752,10 @@ SYMBOL_EXPORT_SC_(CorePkg,generic_function_lambda_lists);
 CL_LISPIFY_NAME("ext:function-lambda-list");
 CL_LAMBDA(function);
 CL_DECLARE();
-CL_DOCSTRING("Return the lambda-list of a function");
+CL_DOCSTRING("Return the lambda-list of a function designator. Note that "
+             "this is intended for human consumption and so may not "
+             "literally describe the function; e.g. macro and type expander "
+             "functions will have the defmacro/deftype lambda list.");
 CL_DEFUN T_mv ext__function_lambda_list(T_sp obj) {
   if (obj.nilp()) {
     return Values(_Nil<T_O>(),_Nil<T_O>());
@@ -1947,64 +1783,6 @@ CL_DEFUN T_sp core__function_source_pos_info(T_sp functionDesignator) {
 };
 
 namespace core {
-CL_DEFUN T_sp core__unsigned_short_round_trip(T_sp num) {
-  unsigned short x = translate::from_object<unsigned short>(num)._v;
-  printf("%s:%d   unsigned short value: %u\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<unsigned short>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__short_round_trip(T_sp num) {
-  short x = translate::from_object<short>(num)._v;
-  printf("%s:%d   short value: %d\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<short>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__unsigned_int_round_trip(T_sp num) {
-  unsigned int x = translate::from_object<unsigned int>(num)._v;
-  printf("%s:%d   unsigned int value: %u\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<unsigned int>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__int_round_trip(T_sp num) {
-  int x = translate::from_object<int>(num)._v;
-  printf("%s:%d   int value: %d\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<int>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__unsigned_long_round_trip(T_sp num) {
-  unsigned long x = translate::from_object<unsigned long>(num)._v;
-  printf("%s:%d   unsigned long value: %lu\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<unsigned long>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__long_round_trip(T_sp num) {
-  long x = translate::from_object<long>(num)._v;
-  printf("%s:%d   long value: %ld\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<long>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__unsigned_long_long_round_trip(T_sp num) {
-  unsigned long long x = translate::from_object<unsigned long long>(num)._v;
-  printf("%s:%d   unsigned long long value: %llu\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<unsigned long long>::convert(x);
-  return result;
-}
-
-CL_DEFUN T_sp core__long_long_round_trip(T_sp num) {
-  long long x = translate::from_object< long long>(num)._v;
-  printf("%s:%d   num.raw_() -> %p\n", __FILE__, __LINE__, num.raw_());
-  printf("%s:%d   num.fixnump() -> %d\n", __FILE__, __LINE__, num.fixnump());
-  printf("%s:%d   long long value: %lld\n", __FILE__, __LINE__, x );
-  T_sp result = translate::to_object<long long>::convert(x);
-  return result;
-}
-
 CL_DEFUN T_sp core__hash256_hex_string(T_sp string)
 {
   String_sp sarg = gc::As<String_sp>(string);
@@ -2179,6 +1957,106 @@ void print_add_two_numbers(int x, int y) {
   SYMBOL_SC_(CorePkg, bdsTop);
   SYMBOL_SC_(CorePkg, bdsVar);
   SYMBOL_SC_(CorePkg, bdsVal);
+
+
+
+
+namespace core {
+
+
+
+
+int tak_aux(int x, int y, int z, bool allocate)
+{
+  if (y < x) {
+    return tak_aux(tak_aux(x-1,y,z,allocate),tak_aux(y-1,z,x,allocate),tak_aux(z-1,x,y,allocate),allocate);
+  } else {
+    if (allocate) {
+#ifdef USE_BOEHM      
+      GC_MALLOC(128);
+#endif
+    }
+    return z;
+  }
+}
+
+int tak(int x, int y, int z, bool allocate, int times) {
+  int ret;
+  for ( int ii=0; ii<times; ++ii ) {
+    ret = tak_aux(x,y,z,allocate);
+  }
+  return ret;
+}
+
+struct Ctak {
+  int val;
+  Ctak(int v) : val(v) {};
+};
+
+int ctak_aux(int x, int y, int z, bool allocate)
+{
+  if (!(y < x)) {
+    Ctak ret(z);
+    if (allocate) {
+#ifdef USE_BOEHM
+      GC_MALLOC(128);
+#endif
+    }
+    throw ret;
+  } else {
+    int rx;
+    try {
+      ctak_aux(x-1,y,z,allocate);
+    } catch (Ctak& val) {
+      rx = val.val;
+    }
+    int ry;
+    try {
+      ctak_aux(y-1,z,x,allocate);
+    } catch (Ctak& val) {
+      ry = val.val;
+    }
+    int rz;
+    try {
+      ctak_aux(z-1,x,y,allocate);
+    } catch (Ctak& val) {
+      rz = val.val;
+    }
+    return ctak_aux(rx,ry,rz,allocate);
+  }
+}
+
+int ctak(int x, int y, int z, bool allocate,int times) {
+  int ret;
+  for (int ii=0; ii<times; ++ii) {
+    try {
+      ctak_aux(x,y,z,allocate);
+    } catch (Ctak& val) {
+      ret = val.val;
+    }
+  }
+  return ret;
+}
+
+
+CL_DOCSTRING("Run the ctak test function (google 'tak function' - this is a try/catch/throw version)");
+CL_LAMBDA(x y z &key allocate (times 1));
+CL_DEFUN void core__ctak(int x, int y, int z, bool allocate, int times)
+{
+  ctak(x,y,z,allocate,times);
+}
+
+CL_DOCSTRING("Run the tak test function (google 'tak function')");
+CL_LAMBDA(x y z &key allocate (times 1));
+CL_DEFUN void core__tak(int x, int y, int z, bool allocate,int times)
+{
+  tak(x,y,z,allocate,times);
+}
+
+};
+
+
+
 
 namespace core {
 void initialize_primitives() {

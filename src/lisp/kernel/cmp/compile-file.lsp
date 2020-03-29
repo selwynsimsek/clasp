@@ -112,7 +112,7 @@
 ;;; at the level of e.g. whether it returns logical pathname or a
 ;;; physical pathname. Patches to make it more correct are welcome.
 (defun compile-file-pathname (input-file &key (output-file nil output-file-p)
-                                           (output-type :fasl)
+                                           (output-type :fasl output-type-p)
 					   type
 					   target-backend
                                            &allow-other-keys)
@@ -121,7 +121,9 @@
 		 (merge-pathnames output-file (translate-logical-pathname (cfp-output-file-default input-file output-type :target-backend target-backend)))
 		 (cfp-output-file-default input-file output-type :target-backend target-backend)))
          (ext (cfp-output-extension output-type)))
-    (make-pathname :type ext :defaults pn)))
+    (if (or output-type-p (not output-file-p))
+        (make-pathname :type ext :defaults pn)
+        pn)))
 
 (defun cf-module-name (type pathname)
   "Create a module name from the TYPE (either :user or :kernel)
@@ -132,33 +134,39 @@ and the pathname of the source file - this will also be used as the module initi
 ;;;
 ;;; Compile-file proper
 
+(defvar *triple* nil)
+
 (defun generate-obj-asm-stream (module output-stream file-type reloc-model &key (target-faso-file (or *generate-faso* *compile-file-parallel*)))
   (with-track-llvm-time
-      (let* ((triple-string (llvm-sys:get-target-triple module))
-             (normalized-triple-string (llvm-sys:triple-normalize triple-string))
-             (triple (llvm-sys:make-triple normalized-triple-string))
-             (target-options (llvm-sys:make-target-options)))
-        (multiple-value-bind (target msg)
-            (llvm-sys:target-registry-lookup-target "" triple)
-          (unless target (error msg))
-          (let* ((target-machine (llvm-sys:create-target-machine target
-                                                                 (llvm-sys:get-triple triple)
-                                                                 ""
-                                                                 ""
-                                                                 target-options
-                                                                 reloc-model
-                                                                 (code-model :jit nil :target-faso-file target-faso-file)
-                                                                 'llvm-sys:code-gen-opt-default
-                                                                 NIL ; JIT?
-                                                                 ))
-                 (pm (llvm-sys:make-pass-manager))
-                 (target-pass-config (llvm-sys:create-pass-config target-machine pm))
-                 (_ (llvm-sys:set-enable-tail-merge target-pass-config nil))
-                 (tli (llvm-sys:make-target-library-info-wrapper-pass triple #||LLVM3.7||#))
-                 (data-layout (llvm-sys:create-data-layout target-machine)))
-            (llvm-sys:set-data-layout module data-layout)
-            (llvm-sys:pass-manager-add pm tli)
-            (llvm-sys:add-passes-to-emit-file-and-run-pass-manager target-machine pm output-stream nil #|<-dwo-stream|# file-type module))))))
+      (progn
+        (unless *triple*
+          (let* ((triple-string (llvm-sys:get-target-triple module))
+                 (normalized-triple-string (llvm-sys:triple-normalize triple-string))
+                 (triple (llvm-sys:make-triple normalized-triple-string)))
+            (setf *triple* triple)))
+        (let* ((triple *triple*)
+               (target-options (llvm-sys:make-target-options)))
+          (multiple-value-bind (target msg)
+              (llvm-sys:target-registry-lookup-target "" triple)
+            (unless target (error msg))
+            (let* ((target-machine (llvm-sys:create-target-machine target
+                                                                   (llvm-sys:get-triple triple)
+                                                                   ""
+                                                                   ""
+                                                                   target-options
+                                                                   reloc-model
+                                                                   (code-model :jit nil :target-faso-file target-faso-file)
+                                                                   'llvm-sys:code-gen-opt-default
+                                                                   NIL ; JIT?
+                                                                   ))
+                   (pm (llvm-sys:make-pass-manager))
+                   (target-pass-config (llvm-sys:create-pass-config target-machine pm))
+                   (_ (llvm-sys:set-enable-tail-merge target-pass-config nil))
+                   (tli (llvm-sys:make-target-library-info-wrapper-pass triple #||LLVM3.7||#))
+                   (data-layout (llvm-sys:create-data-layout target-machine)))
+              (llvm-sys:set-data-layout module data-layout)
+              (llvm-sys:pass-manager-add pm tli)
+              (llvm-sys:add-passes-to-emit-file-and-run-pass-manager target-machine pm output-stream nil #|<-dwo-stream|# file-type module)))))))
 
 
 (defun compile-file-generate-obj-asm (module output-pathname &key file-type (reloc-model 'llvm-sys:reloc-model-undefined))
@@ -288,7 +296,7 @@ Compile a lisp source file into an LLVM module."
                               (source-debug-offset 0)
                               ;; output-type can be (or :fasl :bitcode :object)
                               (output-type (if (or *generate-faso* (eq *clasp-build-mode* :faso))
-                                               :fasp :fasl))
+                                               :fasp :fasl) output-type-p)
                               ;; type can be either :kernel or :user
                               (type :user)
                               ;; A unique prefix for symbols of compile-file'd files that
@@ -306,7 +314,9 @@ Compile a lisp source file into an LLVM module."
   (let* ((*compile-file-parallel* nil))
     (if (not output-file-p) (setq output-file (cfp-output-file-default input-file output-type)))
     (with-compiler-env ()
-      (let* ((output-path (compile-file-pathname input-file :output-file output-file :output-type output-type ))
+      (let* ((output-path (if output-type-p
+                              (compile-file-pathname input-file :output-file output-file :output-type output-type)
+                              (compile-file-pathname input-file :output-file output-file)))
              (*track-inlined-functions* (make-hash-table :test #'equal))
              (output-info-pathname (when output-info (make-pathname :type "info" :defaults output-path)))
              (*compilation-module-index* 0) ; FIXME: necessary?
@@ -338,6 +348,7 @@ Compile a lisp source file into an LLVM module."
               (compile-file-output-module module output-file output-type output-path input-file type
                                           :position image-startup-position)
               (when output-info-pathname (generate-info input-file output-info-pathname))
+              (gctools:thread-local-cleanup)
               output-path)))))))
 
 (defun reloc-model ()

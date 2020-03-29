@@ -2,23 +2,27 @@
 #define gctools_threadlocal_H
 
 #include <signal.h>
+#include <functional>
 #include <clasp/gctools/threadlocal.fwd.h>
 
 
 
-typedef core::T_O*(*fnStartUp)(core::T_O*);
+typedef core::T_O*(*T_OStartUp)(core::T_O*);
+typedef void(*voidStartUp)(void);
 
 
 namespace core {
 
 #define STARTUP_FUNCTION_CAPACITY_INIT 128
 #define STARTUP_FUNCTION_CAPACITY_MULTIPLIER 2
-  struct Startup {
-    size_t _Position;
-    fnStartUp _Function;
-    Startup() {};
-  Startup(size_t p, fnStartUp f) : _Position(p), _Function(f) {};
-    bool operator<(const Startup& other) {
+  struct StartUp {
+    typedef enum {T_O_function, void_function} FunctionEnum;
+    FunctionEnum _Type;
+    size_t       _Position;
+    void*        _Function;
+    StartUp() {};
+    StartUp(FunctionEnum type, size_t p, void* f) : _Type(type), _Position(p), _Function(f) {};
+    bool operator<(const StartUp& other) {
       return this->_Position < other._Position;
     }
   };
@@ -26,10 +30,20 @@ namespace core {
   struct StartupInfo {
     size_t _capacity;
     size_t _count;
-    Startup* _functions;
+    StartUp* _functions;
 
   StartupInfo() : _capacity(0), _count(0), _functions(NULL) {};
   };
+};
+
+namespace core {
+struct CleanupFunctionNode {
+  std::function<void(void)> _CleanupFunction;
+  CleanupFunctionNode*      _Next;
+  CleanupFunctionNode(const std::function<void(void)>& cleanup, CleanupFunctionNode* next)
+    : _CleanupFunction(cleanup), _Next(next) {};
+  
+};
 };
 
 namespace core {
@@ -55,6 +69,7 @@ namespace core {
     const InvocationHistoryFrame* _InvocationHistoryStackTop;
     gctools::GCRootsInModule*  _GCRoots;
     void* _sigaltstack_buffer;
+    size_t  _unwinds;
     stack_t _original_stack;
     void*             _text_segment_start; // Temporarily store text segment start
     size_t            _text_segment_size; // store text segment size
@@ -73,6 +88,7 @@ namespace core {
     Fixnum                 _BacktraceStamp;
     int                    _BacktraceFd;
 #endif
+    CleanupFunctionNode*   _CleanupFunctions;
 #ifdef DEBUG_MONITOR_SUPPORT
     // When enabled, maintain a thread-local map of strings to FILE*
     // used for logging. This is so that per-thread log files can be
@@ -118,6 +134,9 @@ struct CatchTagPusher {
   ~CatchTagPusher() { mthread->setCatchTags(this->catch_tag_state); }
 };
 
+
+void thread_local_register_cleanup(const std::function<void(void)>& cleanup);
+void thread_local_invoke_and_clear_cleanup();
 
 }; // namespace core
 

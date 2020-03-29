@@ -21,7 +21,7 @@
   nil)
 
 (defstruct (ast-job (:type vector) :named)
-  ast environment dynenv output-stream
+  ast environment output-stream
   form-index   ; Uses (core:next-startup-position) to keep count
   form-counter ; Counts from zero
   module
@@ -29,10 +29,10 @@
 
 
 (defun compile-from-module (job &key
-                               optimize
-                               optimize-level
-                               intermediate-output-type
-                               write-bitcode)
+                                  optimize
+                                  optimize-level
+                                  intermediate-output-type
+                                  write-bitcode)
   (handler-case
       (let ((module (ast-job-module job)))
         (cond
@@ -66,7 +66,9 @@
                (let ((bitcode-file (core:coerce-to-filename (cfp-output-file-default (ast-job-form-output-path job) :bitcode))))
                  (write-bitcode module bitcode-file))))
           (t ;; fasl
-           (error "Only options for intermediate-output-type are :object or :bitcode - not ~a" intermediate-output-type))))
+           (error "Only options for intermediate-output-type are :object or :bitcode - not ~a" intermediate-output-type)))
+        (gctools:thread-local-cleanup)
+        )
     (error (e) (setf (ast-job-error job) e))))
 
 
@@ -83,8 +85,7 @@
               (core:with-memory-ramp (:pattern 'gctools:ramp)
                 (literal:with-top-level-form
                     (let ((hoisted-ast (clasp-cleavir::hoist-ast
-                                        (ast-job-ast job)
-                                        (ast-job-dynenv job))))
+                                        (ast-job-ast job))))
                       (clasp-cleavir::translate-hoisted-ast hoisted-ast :env (ast-job-environment job))))))
           (let ((startup-function (add-global-ctor-function module run-all-function
                                                             :position (ast-job-form-counter job))))
@@ -111,9 +112,10 @@
                                write-bitcode)
   (let ((module (ast-job-to-module job :optimize optimize :optimize-level optimize-level)))
     (setf (ast-job-module job) module))
-  (compile-from-module job :optimize optimize :optimize-level optimize-level
-                           :intermediate-output-type intermediate-output-type
-                           :write-bitcode write-bitcode))
+  (let ((result (compile-from-module job :optimize optimize :optimize-level optimize-level
+                                         :intermediate-output-type intermediate-output-type
+                                         :write-bitcode write-bitcode)))
+    result))
 
 (defun wait-for-ast-job (queue &key compile-func optimize optimize-level intermediate-output-type write-bitcode)
   (unwind-protect
@@ -152,6 +154,7 @@ AST->HIR->LLVM-IR is done in serial and in parallel it compiles LLVM-IR->Object 
 Or it can go from source->AST and then compile the AST->HIR->LLVM-IR->ObjectFiles
 in parallel threads. The reason for the two methods is that the AST->HIR uses the 
 garbage collector heavily and Boehm doesn't work well in multithreaded mode.
+Boehm has a mutex and stack unwinding involves a mutex on linux.
 So as an experiment I tried doing AST->HIR and HIR->LLVM-IR in serial and 
 then leave the LLVM stuff to be done in parallel.   That slows down so much
 that it's not worth it either.   It would be better to improve the garbage collector (MPS)
@@ -164,13 +167,11 @@ multithreaded performance that we should explore."
         #+cclasp(cleavir-generate-ast:*compiler* 'cl:compile-file)
         #+cclasp(core:*use-cleavir-compiler* t)
         #+cclasp(eclector.reader:*client* clasp-cleavir::*cst-client*)
+        #+cclasp(eclector.readtable:*readtable* cl:*readtable*)
         ast-jobs)
     (cfp-log "Starting the pool of threads~%")
     (finish-output)
-    (let* ((number-of-threads (if (and (member :use-boehm *features*)
-                                       (member :target-os-linux *features*))
-                                  3 ; limit to 3 cores for linux/boehm
-                                  (core:num-logical-processors)))
+    (let* ((number-of-threads (core:num-logical-processors))
            (ast-queue (core:make-queue 'compile-file-parallel))
            ;; Setup a pool of threads
            (ast-threads
@@ -209,7 +210,6 @@ multithreaded performance that we should explore."
                       (make-pathname
                        :name (format nil "~a_~d" (pathname-name output-path) form-counter)
                        :defaults output-path))
-                    (dynenv (clasp-cleavir::make-dynenv environment))
                     #+cst
                     (cst (eclector.concrete-syntax-tree:cst-read source-sin nil eof-value))
                     #+cst
@@ -218,19 +218,18 @@ multithreaded performance that we should explore."
                     (form (cst:raw cst))
                     #+cst
                     (ast (if cmp::*debug-compile-file*
-                             (clasp-cleavir::compiler-time (clasp-cleavir::cst->ast cst dynenv))
-                             (clasp-cleavir::cst->ast cst dynenv)))
+                             (clasp-cleavir::compiler-time (clasp-cleavir::cst->ast cst))
+                             (clasp-cleavir::cst->ast cst)))
                     #-cst
                     (form (read source-sin nil eof-value))
                     #-cst
                     (_ (when (eq form eof-value) (return nil)))
                     #-cst
                     (ast (if cmp::*debug-compile-file*
-                             (clasp-cleavir::compiler-time (clasp-cleavir::generate-ast form dynenv))
-                             (clasp-cleavir::generate-ast form dynenv))))
+                             (clasp-cleavir::compiler-time (clasp-cleavir::generate-ast form))
+                             (clasp-cleavir::generate-ast form))))
                (let ((ast-job (make-ast-job :ast ast
                                             :environment environment
-                                            :dynenv dynenv
                                             :current-source-pos-info current-source-pos-info
                                             :form-output-path form-output-path
                                             :output-stream (when (eq intermediate-output-type :in-memory-object)
@@ -341,11 +340,11 @@ Compile a lisp source file into an LLVM module."
      (llvm-link output-path :input-files (cfp-result-files result "o")
                             :input-type :object))
     ((member output-type '(:object :fasl :faso :fasp))
-     (let ((output-path (compile-file-pathname output-path :output-type output-type)))
+     (let (#+(or)(output-path (compile-file-pathname output-path :output-type output-type)))
        #+(or)(format t "Output the object files in ast-jobs to ~s~%" output-path)
        (let* ((object-files (loop for ast-job in ast-jobs
-                                  for index = (ast-job-form-index ast-job)
-                                  collect (cons index (ast-job-output-stream ast-job))))
+                               for index = (ast-job-form-index ast-job)
+                               collect (cons index (ast-job-output-stream ast-job))))
               (sorted-object-files (sort object-files #'< :key #'car)))
          #+(or)(format t "sorted-object-files length ~d output-path: ~s~%" (length sorted-object-files) output-path)
          (core:write-faso output-path (mapcar #'cdr sorted-object-files)))))
@@ -378,7 +377,7 @@ Each bitcode filename will contain the form-index.")
                                 ((:source-debug-offset *compile-file-source-debug-offset*) 0)
                                 ((:source-debug-lineno *compile-file-source-debug-lineno*) 0)
                                 ;; output-type can be (or :fasl :bitcode :object)
-                                (output-type :fasl)
+                                (output-type :fasl output-type-p)
                                 ;; type can be either :kernel or :user (FIXME? unused)
                                 (type :user)
                                 ;; ignored by bclasp
@@ -399,7 +398,9 @@ Each bitcode filename will contain the form-index.")
                                         :pathname input-file
                                         :format-control "compile-file-to-module could not find the file ~s to open it"
                                         :format-arguments (list input-file))))
-             (output-path (compile-file-pathname input-file :output-file output-file :output-type output-type))
+             (output-path (if output-type-p
+                              (compile-file-pathname input-file :output-file output-file :output-type output-type)
+                              (compile-file-pathname input-file :output-file output-file)))
              (*compilation-module-index* 0)
              (*compile-file-pathname* (pathname (merge-pathnames input-file)))
              (*compile-file-truename* (translate-logical-pathname *compile-file-pathname*))
@@ -429,16 +430,26 @@ Each bitcode filename will contain the form-index.")
                     (t (output-cfp-result result ast-jobs output-path output-type)))
               output-path)))))))
 
-(defun cl:compile-file (input-file &rest args &key (output-type :fasl) &allow-other-keys)
+(defun cl:compile-file (input-file &rest args &key (output-type :fasl output-type-p)
+                                                output-file (verbose *compile-verbose*) &allow-other-keys)
   (when *generate-faso*
     (remf args :output-type)
     (setq output-type (case output-type
                         (:object :faso)
                         (:fasl :fasp)
                         (otherwise output-type))))
-  (if *compile-file-parallel*
-      (apply #'compile-file-parallel input-file :output-type output-type args)
-      (apply #'compile-file-serial input-file :output-type output-type args)))
+  (flet ((do-compile-file ()
+           (cond ((or output-type-p (null output-file))
+                  (if *compile-file-parallel*
+                      (apply #'compile-file-parallel input-file :output-type output-type args)
+                      (apply #'compile-file-serial input-file :output-type output-type args)))
+                 (t (if *compile-file-parallel*
+                        (apply #'compile-file-parallel input-file args)
+                        (apply #'compile-file-serial input-file args))))))
+    (if verbose
+        (time (do-compile-file))
+        (do-compile-file))))
 
 (eval-when (:load-toplevel)
-  (setf *compile-file-parallel* cmp:*use-compile-file-parallel*))
+  (setf *compile-file-parallel* cmp:*use-compile-file-parallel*
+        *generate-faso* cmp:*use-compile-file-parallel*))

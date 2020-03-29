@@ -1,3 +1,4 @@
+//#define DEBUG_DTORS
 /*
     File: llvmoExpose.h
 */
@@ -47,6 +48,7 @@ THE SOFTWARE.
 //#include "llvm/ExecutionEngine/JIT.h"
 #include <llvm/ExecutionEngine/MCJIT.h>
 //#include "llvm/ExecutionEngine/JITMemoryManager.h"
+#include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
@@ -455,6 +457,12 @@ struct from_object<llvm::ArrayRef<llvm::Attribute::AttrKind>> {
   }
 };
 };
+template <>
+struct gctools::GCInfo<llvmo::Triple_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
 
 namespace llvmo {
 FORWARD(Triple);
@@ -486,7 +494,13 @@ public:
   Triple_O() : Base(), _ptr(NULL){};
   ~Triple_O() {
     if (_ptr != NULL) {
-      delete _ptr;
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -521,7 +535,17 @@ struct to_object<llvm::Triple *> {
   }
 };
 };
-    ;
+;
+
+template <>
+struct gctools::GCInfo<llvmo::TargetOptions_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
+
+
 
 namespace llvmo {
 FORWARD(TargetOptions);
@@ -546,8 +570,9 @@ public:
 
 public:
   void set_wrapped(PointerToExternalType ptr) {
-    if (this->_ptr != NULL)
+    if (this->_ptr != NULL) {
       delete this->_ptr;
+    }
     this->_ptr = ptr;
   }
 
@@ -563,7 +588,13 @@ public:
   TargetOptions_O() : Base(), _ptr(NULL){};
   ~TargetOptions_O() {
     if (_ptr != NULL) {
-      delete _ptr;
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -832,6 +863,13 @@ struct from_object<llvm::TargetMachine::CodeGenFileType, std::true_type> {
 
 
 
+template <>
+struct gctools::GCInfo<llvmo::TargetMachine_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 
 namespace llvmo {
 FORWARD(TargetMachine);
@@ -867,7 +905,14 @@ public:
 
   TargetMachine_O() : Base(), _ptr(NULL){};
   ~TargetMachine_O() {
-    if (_ptr != NULL) { /* delete _ptr;*/
+    if (_ptr != NULL) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -1004,6 +1049,14 @@ struct to_object<llvm::FunctionPass *> {
     ;
 
 
+template <>
+struct gctools::GCInfo<llvmo::TargetPassConfig_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
+
 namespace llvmo {
 FORWARD(TargetPassConfig);
 FORWARD(PassManager);
@@ -1025,13 +1078,20 @@ public:
 
 public:
   void set_wrapped(PointerToExternalType ptr) {
-    /*        if (this->_ptr != NULL ) delete this->_ptr; */
+    if (this->_ptr != NULL ) delete this->_ptr;
     this->_ptr = ptr;
   }
 
   TargetPassConfig_O() : Base(), _ptr(NULL){};
   ~TargetPassConfig_O() {
-    if (_ptr != NULL) { /* delete _ptr;*/
+    if (_ptr != NULL) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -1155,6 +1215,15 @@ struct to_object<llvm::ImmutablePass *> {
 };
     ;
 
+
+template <>
+struct gctools::GCInfo<llvmo::PassManagerBase_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
+
 namespace llvmo {
 FORWARD(PassManagerBase);
 class PassManagerBase_O : public core::ExternalObject_O {
@@ -1180,9 +1249,15 @@ public:
     this->_ptr = ptr;
   }
   PassManagerBase_O() : Base(), _ptr(NULL){};
-  ~PassManagerBase_O() {
+  virtual ~PassManagerBase_O() {
     if (_ptr != NULL) {
-      delete _ptr;
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -1509,6 +1584,14 @@ struct to_object<llvm::Attribute> {
 };
     ;
 
+
+template <>
+struct gctools::GCInfo<llvmo::DataLayout_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(DataLayout);
 FORWARD(StructLayout);
@@ -1533,7 +1616,18 @@ public:
   };
   /*! Delete the default constructor because llvm::DataLayout doesn't have one */
   DataLayout_O() = delete;
-  ~DataLayout_O() {delete this->_DataLayout;}
+  ~DataLayout_O() {
+    if (this->_DataLayout) {
+      auto ptr = this->_DataLayout;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
+      this->_DataLayout=NULL;
+    }
+  }
   DataLayout_sp copy() const;
 
 }; // DataLayout_O
@@ -2138,6 +2232,14 @@ struct to_object<const llvm::TargetLibraryInfoWrapperPass *> {
 };
 };
 
+
+template <>
+struct gctools::GCInfo<llvmo::FunctionPassManager_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(FunctionPassManager);
 class FunctionPassManager_O : public PassManagerBase_O {
@@ -2157,7 +2259,16 @@ public:
   }
   FunctionPassManager_O() : Base(){};
   ~FunctionPassManager_O() {
-    //	    if ( this->_ptr!=NULL ) delete this->_ptr;
+    if ( this->_ptr!=NULL ) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
+      this->_ptr = NULL;
+    }
   }
 
 public:
@@ -2192,6 +2303,13 @@ template <>
 };
     ;
 
+template <>
+struct gctools::GCInfo<llvmo::PassManager_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(PassManager);
 class PassManager_O : public PassManagerBase_O {
@@ -2210,8 +2328,17 @@ public:
     this->_ptr = ptr;
   }
   PassManager_O() : Base(){};
-  ~PassManager_O() {
-    //	    if ( this->_ptr!=NULL ) { delete this->_ptr; this->_ptr = NULL; };
+  virtual ~PassManager_O() {
+    if (this->_ptr) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
+      this->_ptr = NULL;
+    }
   }
 
 public:
@@ -2308,6 +2435,14 @@ struct from_object<llvm::EngineBuilder *, std::true_type> {
     ;
 /* to_object translators */
 
+
+template <>
+struct gctools::GCInfo<llvmo::PassManagerBuilder_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(PassManagerBuilder);
 class PassManagerBuilder_O : public core::ExternalObject_O {
@@ -2329,14 +2464,21 @@ public:
 public:
   PointerToExternalType wrappedPtr() { return llvm_cast<ExternalType>(this->_ptr); };
   void set_wrapped(PointerToExternalType ptr) {
-    /*        if (this->_ptr != NULL ) delete this->_ptr; */
+    if (this->_ptr != NULL ) delete this->_ptr;
     this->_ptr = ptr;
   }
   string error_string() const { return this->_ErrorStr; };
 
   PassManagerBuilder_O() : Base(), _ptr(NULL){};
   ~PassManagerBuilder_O() {
-    if (_ptr != NULL) { /* delete _ptr;*/
+    if (_ptr != NULL) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -2445,6 +2587,15 @@ struct to_object<llvm::APInt> {
 };
 };
 
+
+
+template <>
+struct gctools::GCInfo<llvmo::IRBuilderBase_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(IRBuilderBase);
 class IRBuilderBase_O : public core::ExternalObject_O {
@@ -2474,7 +2625,14 @@ public:
   core::T_sp getInsertPointInstruction();
   IRBuilderBase_O() : Base(), _ptr(NULL), _CurrentDebugLocationSet(false){};
   ~IRBuilderBase_O() {
-    if (_ptr != NULL) { /* delete _ptr;*/
+    if (_ptr != NULL) {
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -2516,6 +2674,14 @@ struct to_object<llvm::IRBuilderBase *> {
 };
     ;
 
+
+template <>
+struct gctools::GCInfo<llvmo::IRBuilder_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
+
 namespace llvmo {
 FORWARD(IRBuilder);
 class IRBuilder_O : public IRBuilderBase_O {
@@ -2526,7 +2692,7 @@ class IRBuilder_O : public IRBuilderBase_O {
 public:
   PointerToExternalType wrappedPtr() { return static_cast<PointerToExternalType>(this->_ptr); };
   void set_wrapped(PointerToExternalType ptr) {
-    /*        if (this->_ptr != NULL ) delete this->_ptr; */
+    if (this->_ptr != NULL ) delete this->_ptr;
     this->_ptr = ptr;
   }
   IRBuilder_O() : Base(){};
@@ -4486,25 +4652,23 @@ struct ObjectFileInfo {
   ObjectFileInfo* _next;
 };
 
+FORWARD(ClaspJIT);
 class ClaspJIT_O : public core::General_O {
   LISP_CLASS(llvmo, LlvmoPkg, ClaspJIT_O, "clasp-jit", core::General_O);
 public:
-  void saveObjectFileInfo(const char* buffer, size_t bytes, const char* faso_filename, size_t faso_index, size_t objectID);
-  size_t numberOfObjectFiles();
 public:
   void addIRModule(Module_sp cM,ThreadSafeContext_sp context);
+  bool do_lookup(JITDylib& dylib, const std::string& Name, void*& pointer);
   core::Pointer_sp lookup(JITDylib& dylib, const std::string& Name);
+  core::T_sp lookup_all_dylibs(const std::string& Name);
   JITDylib& getMainJITDylib();
   JITDylib_sp createAndRegisterJITDylib(const std::string& name);
   void addObjectFile(const char* buffer, size_t bytes, size_t startupID, JITDylib& dylib, 
                      const char* faso_filename, size_t faso_index,
                      bool print=false);
-  core::T_mv objectFileForInstructionPointer(core::Pointer_sp instruction_pointer, bool verbose);
-  
   ClaspJIT_O();
   ~ClaspJIT_O();
 public:
-  std::atomic<ObjectFileInfo*> _ObjectFiles;
   llvm::DataLayout* _DataLayout;
   llvm::orc::ExecutionSession *ES;
 #ifdef USE_JITLINKER
@@ -4529,7 +4693,7 @@ class MDBuilder_O;
 template <>
 struct gctools::GCInfo<llvmo::MDBuilder_O> {
   static bool constexpr NeedsInitialization = false;
-  static bool constexpr NeedsFinalization = false;
+  static bool constexpr NeedsFinalization = true;
   static GCInfo_policy constexpr Policy = normal;
 };
 
@@ -4646,5 +4810,23 @@ template <>
 
 ENUM_TRANSLATOR(llvm::GlobalValue::UnnamedAddr,llvmo::_sym_STARGlobalValueUnnamedAddrSTAR);
 
+
+
+
+namespace translate {
+ template <typename T>
+struct from_object<llvm::Optional<T>> {
+   typedef llvm::Optional<T> DeclareType;
+   DeclareType _v;
+   from_object(core::T_sp o) {
+     if (o.unboundp()) {
+       return;
+     }
+     llvm::Optional<T> val(from_object<T>(o)._v);
+     this->_v = val;
+     return;
+   }
+ };
+}
 
 #endif //]

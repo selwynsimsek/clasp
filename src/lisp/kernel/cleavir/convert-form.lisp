@@ -13,7 +13,8 @@
              (rest-alloc (cmp:compute-rest-alloc restvar dspecs))
              (origin (or (cleavir-ast:origin function-ast) ; should be nil, but just in case.
                          core:*current-source-pos-info*)))
-        (unless lambda-name (setq lambda-name 'cl:lambda))
+        (unless lambda-name
+          (setq lambda-name (list 'cl:lambda (cmp::lambda-list-for-name lambda-list))))
         ;; Make the change here to a named-function-ast with lambda-name
         (change-class function-ast 'clasp-cleavir-ast:named-function-ast
                       :lambda-name lambda-name
@@ -38,7 +39,8 @@
              ;; ditto FIXME in c-g-a version
              (restvar (and rest-position (elt original-lambda-list (1+ rest-position))))
              (rest-alloc (cmp:compute-rest-alloc restvar dspecs)))
-        (unless lambda-name (setq lambda-name 'lambda))
+        (unless lambda-name
+          (setq lambda-name (list 'lambda (cmp::lambda-list-for-name original-lambda-list))))
         ;; Define the function-scope-info object and bind it to
         ;; the *current-function-scope-info* object
         (let ((origin (let ((source (cst:source body)))

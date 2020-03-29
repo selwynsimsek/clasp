@@ -49,8 +49,10 @@
   (core:select-package "GRAY"))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '( fundamental-character-output-stream
-          )))
+  (export '(fundamental-character-input-stream
+            fundamental-character-output-stream
+            fundamental-binary-input-stream
+            fundamental-binary-output-stream)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -137,8 +139,7 @@
   (core:select-package :ext))
 
 (eval-when (:execute :compile-toplevel :load-toplevel)
-  (export '(check-arguments-type
-            array-index
+  (export '(array-index
             byte8
             integer8
             byte16
@@ -163,8 +164,6 @@
             unix-signal-received-code
             unix-signal-received-handler
             interactive-interrupt
-            hash-table-content
-            hash-table-fill
             compiled-function-file
             lisp-implementation-vcs-id
             getcwd

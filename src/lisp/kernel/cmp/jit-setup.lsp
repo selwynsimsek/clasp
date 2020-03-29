@@ -384,7 +384,7 @@ No DIBuilder is defined for the default module")
 
 (export '(jit-startup-function-name jit-shutdown-function-name jit-repl-function-name))
 
-(defun jit-function-name (lname &key (compile-file-unique-symbol-prefix *compile-file-unique-symbol-prefix*))
+(defun jit-function-name (lname)
   "Depending on the type of LNAME an actual LLVM name is generated"
   ;;  (break "Check backtrace")
   (cond
@@ -415,6 +415,7 @@ No DIBuilder is defined for the default module")
                                  ;;; More likely it is an uninterned symbol
                                  "KEYWORD")))
               (escape-and-join-jit-name (list sym-name pkg-name "FN"))))))
+    ;; (SETF symbol)
     ((and (consp lname) (eq (car lname) 'setf) (symbolp (second lname)))
 ;;;     (core:bformat t "jit-function-name handling SETF: %s%N" lname)
      (let* ((sn (cadr lname))
@@ -424,9 +425,9 @@ No DIBuilder is defined for the default module")
                           (string (package-name sym-pkg))
                           "KEYWORD")))
        (escape-and-join-jit-name (list sym-name pkg-name "SETF"))))
+    ;; (SETF (symbol ...))
     ((and (consp lname) (eq (car lname) 'setf) (consp (second lname)))
 ;;;     (core:bformat t "jit-function-name handling SETFCONS: %s%N" lname)
-     ;; (setf (something ...))
      (let* ((sn (second lname))
             (sn-sym (first sn))
             (sym-pkg (symbol-package sn-sym))
@@ -435,6 +436,7 @@ No DIBuilder is defined for the default module")
                           (string (package-name sym-pkg))
                           "KEYWORD")))
        (escape-and-join-jit-name (list sym-name pkg-name "SETFCONS"))))
+    ;; (METHOD symbol . specializer-list): a method function
     ((and (consp lname) (eq (car lname) 'method) (symbolp (second lname)))
      (let* ((symbol (second lname))
             (sym-pkg (symbol-package symbol))
@@ -444,6 +446,7 @@ No DIBuilder is defined for the default module")
            (name (symbol-name symbol))
            (specializers (core:bformat nil "%s" (cddr lname))))
        (escape-and-join-jit-name (list name pkg-name specializers "METHOD"))))
+    ;; (METHOD (SETF symbol) . specializer-list): a method function
     ((and (consp lname) (eq (car lname) 'method) (consp (second lname)) (eq (car (second lname)) 'setf))
      (let* ((name-list (second lname))
             (setf-name-symbol (second name-list))
@@ -454,8 +457,12 @@ No DIBuilder is defined for the default module")
                           "UNINTERNED"))
             (specializers (core:bformat nil "%s" (cddr lname))))
        (escape-and-join-jit-name (list (string setf-name-symbol) pkg-name specializers "SETFMETHOD"))))
+    ;; (LAMBDA lambda-list): an anonymous function
+    ((and (consp lname) (eq (car lname) 'cl:lambda))
+     (jit-function-name 'cl:lambda))
+    #+(or) ;; uncomment this to be more forgiving
     ((consp lname)
-;;;     (core:bformat t "jit-function-name handling UNKNOWN: %s%N" lname)
+     (core:bformat t "jit-function-name handling UNKNOWN: %s%N" lname)
      ;; What is this????
      (bformat nil "%s_CONS-LNAME?" lname))
     (t (error "Illegal lisp function name[~a]" lname))))
@@ -623,7 +630,7 @@ The passed module is modified as a side-effect."
 ;;;
 
 ;;; jit-register-symbol is a call
-#+threads(defvar *jit-log-lock* (mp:make-lock :name 'jit-log-lock :recursive t))
+#+threads(defvar *jit-log-lock* (mp:make-recursive-mutex 'jit-log-lock))
 (defvar *jit-log-stream*)
 (defvar *jit-pid*)
 
@@ -633,7 +640,7 @@ The passed module is modified as a side-effect."
   (if (member :jit-log-symbols *features*)
       (unwind-protect
            (progn
-             #+threads(mp:lock *jit-log-lock* t)
+             #+threads(mp:get-lock *jit-log-lock*)
              (cond
                ;; If this is the first process to generate a symbol then create the master symbol file
                ((not (boundp '*jit-pid*))
@@ -657,11 +664,11 @@ The passed module is modified as a side-effect."
                    (terpri *jit-log-stream*)
                    (finish-output *jit-log-stream*))))
         (progn
-          #+threads(mp:unlock *jit-log-lock*)))))
+          #+threads(mp:giveup-lock *jit-log-lock*)))))
 
 (progn
   (export '(jit-add-module-return-function jit-add-module-return-dispatch-function jit-remove-module))
-  (defparameter *jit-lock* (mp:make-lock :name 'jit-lock :recursive t))
+  (defparameter *jit-lock* (mp:make-recursive-mutex 'jit-lock))
   (defun jit-add-module-return-function (original-module main-fn startup-fn shutdown-fn literals-list
                                          &key output-path)
     ;; Link the builtins into the module and optimize them
@@ -677,9 +684,9 @@ The passed module is modified as a side-effect."
             (startup-name (if startup-fn (llvm-sys:get-name startup-fn) nil))
             (shutdown-name (if shutdown-fn (llvm-sys:get-name shutdown-fn) nil)))
         (if (or (null repl-name) (string= repl-name ""))
-          (error "Could not obtain the name of the repl function ~s - got ~s" main-fn repl-name))
+            (error "Could not obtain the name of the repl function ~s - got ~s" main-fn repl-name))
         (if (or (null startup-name) (string= startup-name ""))
-          (error "Could not obtain the name of the startup function ~s - got ~s" startup-fn startup-name))
+            (error "Could not obtain the name of the startup function ~s - got ~s" startup-fn startup-name))
         (with-track-llvm-time
             (unwind-protect
                  (progn
@@ -695,7 +702,9 @@ The passed module is modified as a side-effect."
                      (core:bformat t "startup-name |%s|%N" startup-name)
                      (core:bformat t "Done dump module%N")
                      )
-                   (mp:lock *jit-lock* t)
+                   (mp:get-lock *jit-lock*)
                    (llvm-sys:add-irmodule jit-engine module *thread-safe-context*)
                    (llvm-sys:jit-finalize-repl-function jit-engine repl-name startup-name shutdown-name literals-list))
-              (mp:unlock *jit-lock*)))))))
+              (progn
+                (gctools:thread-local-cleanup)
+                (mp:giveup-lock *jit-lock*))))))))

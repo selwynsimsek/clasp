@@ -1,3 +1,4 @@
+//#define DEBUG_DTORS 1
 /*
     File: debugInfoExpose.h
 */
@@ -692,6 +693,12 @@ namespace translate {
   };
 };
 
+template <>
+struct gctools::GCInfo<llvmo::DIBuilder_O> {
+  static bool constexpr NeedsInitialization = false;
+  static bool constexpr NeedsFinalization = true;
+  static GCInfo_policy constexpr Policy = normal;
+};
 
 
 namespace llvmo {
@@ -722,7 +729,13 @@ public:
   DIBuilder_O() : Base(), _ptr(NULL){};
   virtual ~DIBuilder_O() {
     if (_ptr != NULL) {
-      delete _ptr;
+      auto ptr = this->_ptr;
+      core::thread_local_register_cleanup([ptr] (void) {
+#ifdef DEBUG_DTORS
+                                            printf("%s:%d dtor %p\n", __FILE__, __LINE__, ptr);
+#endif
+                                            delete ptr;
+                                          });
       _ptr = NULL;
     };
   }
@@ -970,6 +983,20 @@ struct to_object<llvm::DWARFContext *> {
 
 ENUM_FROM_OBJECT_TRANSLATOR(llvm::DIFile::ChecksumKind,llvmo::_sym_CSKEnum);
 ENUM_FROM_OBJECT_TRANSLATOR(llvm::DICompileUnit::DebugNameTableKind,llvmo::_sym_DNTKEnum);
+
+
+namespace llvmo {
+void save_object_file_info(const char* objectFileStart, size_t objectFileSize,
+                           const char* faso_filename,
+                           size_t faso_index,
+                           size_t objectID );
+core::T_mv object_file_for_instruction_pointer(core::Pointer_sp instruction_pointer, bool verbose);
+
+size_t number_of_object_files();
+
+size_t total_memory_allocated_for_object_files();
+
+};
 
 
 #endif // debugInfo expose

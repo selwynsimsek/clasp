@@ -274,22 +274,22 @@
 
 ;;; Keeps track of the number of dispatchers that were compiled and
 ;;;   is used to give the roots array in each dispatcher a unique name.
-#+threads(defvar *dispatcher-count-lock* (mp:make-lock :name '*dispatcher-count-lock* ))
+#+threads(defvar *dispatcher-count-lock* (mp:make-lock :name '*dispatcher-count-lock*))
 (defvar *dispatcher-count* 0)
 (defun increment-dispatcher-count ()
   #-threads(incf *dispatcher-count*)
   #+threads(unwind-protect
        (progn
-         (mp:lock *dispatcher-count-lock* t)
+         (mp:get-lock *dispatcher-count-lock*)
          (incf *dispatcher-count*))
-    (mp:unlock *dispatcher-count-lock*)))
+    (mp:giveup-lock *dispatcher-count-lock*)))
 (defun dispatcher-count ()
   #-threads *dispatcher-count*
   #+threads(unwind-protect
                 (progn
-                  (mp:lock *dispatcher-count-lock* t)
+                  (mp:get-lock *dispatcher-count-lock*)
                   *dispatcher-count*)
-             (mp:unlock *dispatcher-count-lock*)))
+             (mp:giveup-lock *dispatcher-count-lock*)))
 
 (defvar *fastgf-use-compiler* nil)
 (defvar *fastgf-timer-start*)
@@ -306,6 +306,9 @@
              (let ((program (coerce (linearize compiled) 'vector)))
                (lambda (core:&va-rest args)
                  (declare (core:lambda-name interpreted-discriminating-function))
+                 (unless (vectorp program)
+                   (error "interpret-dtree-program needs 'program' to be a vector but it's about to get ~s of type ~a for generic-function: ~s"
+                          program (class-of program) generic-function))
                  (clos:interpret-dtree-program program generic-function args))))
       (let ((delta-seconds (/ (float (- (get-internal-real-time) *fastgf-timer-start*) 1d0)
                               internal-time-units-per-second)))

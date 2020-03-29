@@ -670,8 +670,9 @@ extern "C" {
 /*! Invoke the main functions from the main function array.
 If isNullTerminatedArray is 1 then there is a NULL terminated array of functions to call.
 Otherwise there is just one. */
-void cc_register_startup_function(size_t index, fnStartUp fptr) {
-  register_startup_function(index,fptr);
+void cc_register_startup_function(size_t index, T_OStartUp fptr) {
+  core::StartUp su(core::StartUp::T_O_function,index,(void*)fptr);
+  register_startup_function(su);
 }
 /*! Call this with an alloca pointer to keep the alloca from 
 being optimized away */
@@ -747,6 +748,7 @@ void debugInspect_return_type(gctools::return_type rt)
   size_t size = mv.getSize();
   printf("debugInspect_return_type rt.ret0@%p  rt.nvals=%zu mvarray.size=%zu\n", rt.ret0[0], rt.nvals, size);
   size = std::max(size, rt.nvals);
+  printf("multipleValue[0] address: %p    size address: %p\n", &my_thread->_MultipleValues, &my_thread->_MultipleValues._Size);
   for (size_t i(0); i < size; ++i) {
     printf("[%zu]->%p : %s\n", i, mv.valueGet(i, size).raw_(), _rep_(core::T_sp((gc::Tagged)mv.valueGet(i,size).raw_())).c_str());
   }
@@ -854,15 +856,14 @@ void debugPrint_size_t(size_t v)
 }
 
 void throwReturnFrom(size_t depth, core::ActivationFrame_O* frameP) {
-#ifdef DEBUG_TRACK_UNWINDS
-  global_ReturnFrom_count++;
-#endif
+  my_thread->_unwinds++;
   core::ActivationFrame_sp af((gctools::Tagged)(frameP));
   core::T_sp handle = *const_cast<core::T_sp *>(&core::value_frame_lookup_reference(af, depth, 0));
   core::ReturnFrom returnFrom(handle.raw_());
 #if defined(DEBUG_FLOW_TRACKER)
   flow_tracker_about_to_throw(CONS_CAR(handle).unsafe_fixnum());
 #endif
+  my_thread_low_level->_start_unwind = std::chrono::high_resolution_clock::now();
   throw returnFrom;
 }
 };
@@ -874,6 +875,8 @@ gctools::return_type blockHandleReturnFrom_or_rethrow(unsigned char *exceptionP,
   if (returnFrom.getHandle() == handle) {
     core::MultipleValues &mv = core::lisp_multipleValues();
     gctools::return_type result(mv.operator[](0),mv.getSize());
+    std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
+    my_thread_low_level->_unwind_time += (now - my_thread_low_level->_start_unwind);
     return result;
   }
 #if defined(DEBUG_FLOW_TRACKER)
@@ -940,11 +943,12 @@ void throwIllegalSwitchValue(size_t val, size_t max) {
   SIMPLE_ERROR(BF("Illegal switch value %d - max value is %d") % val % max);
 }
 
+void cc_error_bugged_catch(size_t id) {
+  SIMPLE_ERROR(BF("BUG: Nonlocal entry frame could not match go-index %d") % id);
+}
 
 void throwDynamicGo(size_t depth, size_t index, core::T_O *afP) {
-#ifdef DEBUG_TRACK_UNWINDS
-  global_DynamicGo_count++;
-#endif
+  my_thread->_unwinds++;
   T_sp af((gctools::Tagged)afP);
   ValueFrame_sp tagbody = gc::As<ValueFrame_sp>(core::tagbody_frame_lookup(gc::As_unsafe<ValueFrame_sp>(af),depth,index));
   T_O* handle = tagbody->operator[](0).raw_();
@@ -955,12 +959,15 @@ void throwDynamicGo(size_t depth, size_t index, core::T_O *afP) {
   Fixnum throwFlowCounter = CONS_CAR(throwHandleCons).unsafe_fixnum();
   flow_tracker_about_to_throw(throwFlowCounter);
 #endif
+  my_thread_low_level->_start_unwind = std::chrono::high_resolution_clock::now();
   throw dgo;
 }
 
 size_t tagbodyHandleDynamicGoIndex_or_rethrow(char *exceptionP, T_O* handle) {
   core::DynamicGo& goException = *reinterpret_cast<core::DynamicGo *>(exceptionP);
   if (goException.getHandle() == handle) {
+    std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
+    my_thread_low_level->_unwind_time += (now - my_thread_low_level->_start_unwind);
     return goException.index();
   }
   throw;
@@ -1061,6 +1068,21 @@ void cc_setTLSymbolValue(core::T_O* sym, core::T_O *val)
 {NO_UNWIND_BEGIN();
   core::Symbol_sp s = gctools::smart_ptr<core::Symbol_O>((gc::Tagged)sym);
   s->set_threadLocalSymbolValue(gctools::smart_ptr<core::T_O>((gc::Tagged)val));
+  NO_UNWIND_END();
+}
+
+// identical to above, but used so bindings are readable as read->set->reset
+void cc_resetTLSymbolValue(core::T_O* sym, core::T_O *val)
+{NO_UNWIND_BEGIN();
+  core::Symbol_sp s = gctools::smart_ptr<core::Symbol_O>((gc::Tagged)sym);
+  s->set_threadLocalSymbolValue(gctools::smart_ptr<core::T_O>((gc::Tagged)val));
+  NO_UNWIND_END();
+}
+
+core::T_O *cc_TLSymbolValue(core::T_O* sym)
+{NO_UNWIND_BEGIN();
+  core::Symbol_sp s = gctools::smart_ptr<core::Symbol_O>((gc::Tagged)sym);
+  return s->threadLocalSymbolValue().raw_();
   NO_UNWIND_END();
 }
 
@@ -1165,21 +1187,6 @@ T_O **cc_multipleValuesArrayAddress()
   NO_UNWIND_END();
 }
 
-void cc_unwind(T_O *targetFrame, size_t index) {
-#ifdef DEBUG_TRACK_UNWINDS
-  global_unwind_count++;
-#endif
-  // Signal an error if the frame we're trying to return to is no longer on the stack.
-  // FIXME: This is kind of a kludge. It iterates through the stack frame. But c++ throw
-  // does so as well - twice - so we end up iterating three times.
-  // The correct thing to do would probably be to use the Itanium EH ABI (which we already
-  // rely on the C++ part of) and write our own throw, that signals an error instead of
-  // calling std::terminate in the event no handler is present.
-  core::frame_check((uintptr_t)targetFrame);
-  core::Unwind unwind(targetFrame, index);
-  throw unwind;
-}
-
 void cc_saveMultipleValue0(core::T_mv result)
 {NO_UNWIND_BEGIN();
   result.saveToMultipleValue0();
@@ -1194,6 +1201,9 @@ gctools::return_type cc_restoreMultipleValue0()
   NO_UNWIND_END();
 }
 
+// cc_{save,load}_values are intended for code that does something,
+// then some other things, then returns values from the first thing.
+// e.g. multiple-value-prog1, unwind-protect without nonlocal exit
 void cc_save_values(size_t nvals, T_O* primary, T_O** vector)
 {NO_UNWIND_BEGIN();
   returnTypeSaveToTemp(nvals, primary, vector);
@@ -1206,21 +1216,52 @@ gctools::return_type cc_load_values(size_t nvals, T_O** vector)
   NO_UNWIND_END();
 }
 
-T_O *cc_pushLandingPadFrame()
+// cc_nvalues and cc_{save,load}_all_values are for unwind protect cleanup.
+// See analogous C++ code in evaluator.cc: sp_unwindProtect.
+size_t cc_nvalues()
 {NO_UNWIND_BEGIN();
-#ifdef DEBUG_FLOW_TRACKER
-  Cons_sp unique = Cons_O::create(make_fixnum(next_flow_tracker_counter()),_Nil<T_O>());
-#else
-  Cons_sp unique = Cons_O::create(_Nil<T_O>(),_Nil<T_O>());
-#endif
-  return unique.raw_();
+  MultipleValues &mv = lisp_multipleValues();
+  return mv.getSize();
   NO_UNWIND_END();
+}
+
+void cc_save_all_values(size_t nvals, T_O** vector)
+{NO_UNWIND_BEGIN();
+  multipleValuesSaveToTemp(nvals, vector);
+  NO_UNWIND_END();
+}
+
+void cc_load_all_values(size_t nvals, T_O** vector)
+{NO_UNWIND_BEGIN();
+  multipleValuesLoadFromTemp(nvals, vector);
+  NO_UNWIND_END();
+}
+
+void cc_unwind(T_O *targetFrame, size_t index) {
+  // Signal an error if the frame we're trying to return to is no longer on the stack.
+  // FIXME: This is kind of a kludge. It iterates through the stack frame. But c++ throw
+  // does so as well - twice - so we end up iterating three times.
+  // The correct thing to do would probably be to use the Itanium EH ABI (which we already
+  // rely on the C++ part of) and write our own throw, that signals an error instead of
+  // calling std::terminate in the event no handler is present.
+  my_thread->_unwinds++;
+  my_thread_low_level->_start_unwind = std::chrono::high_resolution_clock::now();
+  core::frame_check((uintptr_t)targetFrame);
+  core::Unwind unwind(targetFrame, index);
+  throw unwind;
 }
 
 size_t cc_landingpadUnwindMatchFrameElseRethrow(char *exceptionP, core::T_O *thisFrame) {
   core::Unwind *unwindP = reinterpret_cast<core::Unwind *>(exceptionP);
   if (unwindP->getFrame() == thisFrame) {
+    std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
+    my_thread_low_level->_unwind_time += (now - my_thread_low_level->_start_unwind);
     return unwindP->index();
+  }
+  if ((uintptr_t)unwindP->getFrame() < (uintptr_t)thisFrame) {
+      printf("%s:%d:%s You blew past the frame unwindP->getFrame()->%p  thisFrame->%p\n",
+             __FILE__, __LINE__, __FUNCTION__, (void*)unwindP->getFrame(), (void*)thisFrame);
+      abort();
   }
   // throw * unwindP;
   throw;

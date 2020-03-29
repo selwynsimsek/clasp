@@ -24,13 +24,16 @@ last FORM.  If not, simply returns NIL."
 
 (defmacro defmacro (name lambda-list &body body &environment env)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
-     ;; TODO: Move this LET into a function- %DEFMACRO or sth.
-     ;; Then the compiler won't have to compile an extra let at compile-time.
-     ;; I'm only not doing this now because there are, as usual,
-     ;; issues with bootstrapping (%DEFMACRO must be defined very early).
-     (let ((macro-function #',(ext:parse-macro name lambda-list body env)))
-       (funcall #'(setf macro-function) macro-function ',name)
-       (setf-lambda-list macro-function ',lambda-list))
+     ;; NOTE: Written in this funny way because LET binding would force an
+     ;; extra compile at compile-file time
+     ;; (as the eval-when :compile-toplevel is executed)
+     ;; Need a more comprehensive solution though, since the actual macro
+     ;; lambda will be compiled twice anyway.
+     (setf-lambda-list
+      (funcall #'(setf macro-function)
+               #',(ext:parse-macro name lambda-list body env)
+               ',name)
+      ',lambda-list)
      ',name))
 
 (defmacro destructuring-bind (vl list &body body)
@@ -56,6 +59,13 @@ as a VARIABLE doc and can be retrieved by (documentation 'NAME 'variable)."
     ,@(when form-sp
 	  `((UNLESS (BOUNDP ',var)
 	      (SETQ ,var ,form))))
+    ,@(when (and core:*current-source-pos-info*
+                 ;; KLUDGE so that we can bootstrap this.
+                 ;; The function is defined in clos/print.lsp.
+                 ;; FIXME: Special case source pos infos in the literal
+                 ;; compiler, maybe?
+                 (fboundp 'variable-source-info-saver))
+        (variable-source-info-saver var core:*current-source-pos-info*))
     ,@(si::expand-set-documentation var 'variable doc-string)
     ',var))
 
@@ -68,6 +78,9 @@ as a VARIABLE doc and can be retrieved by (documentation 'NAME 'variable)."
      (eval-when (:compile-toplevel :load-toplevel :execute)
        (SYS:*MAKE-SPECIAL ',var))
      (SETQ ,var ,form)
+    ,@(when (and core:*current-source-pos-info*
+                 (fboundp 'variable-source-info-saver))
+        (variable-source-info-saver var core:*current-source-pos-info*))
      ,@(si::expand-set-documentation var 'variable doc-string)
      ',var))
 
@@ -87,6 +100,9 @@ existing value."
                   (error "Cannot redefine special variable ~a as constant" ',var))
                  (t (set ',var ,value)
                     (funcall #'(setf core:symbol-constantp) t ',var)))))
+       ,@(when (and core:*current-source-pos-info*
+                    (fboundp 'variable-source-info-saver))
+           (variable-source-info-saver var core:*current-source-pos-info*))
        ,@(si::expand-set-documentation var 'variable doc-string)
        ',var)))
 
@@ -385,9 +401,13 @@ values of the last FORM.  If no FORM is given, returns NIL."
 	 (error "DEFINE-SYMBOL-MACRO: cannot redefine a special variable, ~A"
 		symbol))
 	(t
-	 `(eval-when (:compile-toplevel :load-toplevel :execute)
-            (funcall #'(setf ext:symbol-macro) ',expansion ',symbol)
-	   ',symbol))))
+	 `(progn
+            (eval-when (:compile-toplevel :load-toplevel :execute)
+              (funcall #'(setf ext:symbol-macro) ',expansion ',symbol))
+            ,@(when (and core:*current-source-pos-info*
+                         (fboundp 'variable-source-info-saver))
+                (variable-source-info-saver symbol core:*current-source-pos-info*))
+            ',symbol))))
 
 (defmacro nth-value (n expr)
   `(nth ,n (multiple-value-list ,expr)))
@@ -415,7 +435,7 @@ Right now the only such information is that it exists. In the future I'd like to
 (This is early on here because bootstrapping sucks)
 |#
 
-(defvar *class-infos* (make-hash-table :test #'eq))
+(defvar *class-infos* (make-hash-table :test #'eq :thread-safe t))
 
 (defun class-info (name &optional env)
   (or (find-class name nil env)

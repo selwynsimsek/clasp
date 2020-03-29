@@ -10,7 +10,19 @@
 (in-package :cl-user)
 
 (format t "Loading asdf~%")
-(load "sys:modules;asdf;build;asdf.lisp")
+#+bclasp
+(defpackage "CLEAVIR-ENV" (:use :common-lisp))
+#+bclasp
+(progn
+  (defun cleavir-env::optimize (arg) nil)
+  (defun cleavir-env::optimize-info (arg) nil)
+  (defparameter clasp-cleavir::*clasp-env* nil)
+  (export '(cleavir-env::optimize cleavir-env::optimize-info) :cleavir-env)
+  (export 'clasp-cleavir::*clasp-env* :clasp-cleavir)
+  (load "sys:modules;asdf;build;asdf.lisp"))
+#+cclasp
+(require :asdf)
+
 
 (defun save-file-list-as-python (filename file-list)
   "Save the list of files in FILE-LIST to FILENAME as a python file."
@@ -54,7 +66,8 @@
     ;; replace CL functions like CONSP, CAR, CDR, RPLACA etc
     ;;#P"src/lisp/kernel/tags/pre-auto"
     "src/lisp/kernel/cleavir/auto-compile"
-    "src/lisp/kernel/cleavir/inline")))
+    "src/lisp/kernel/cleavir/inline"
+    "src/lisp/kernel/cleavir/transform")))
 
 (save-file-list-as-python
  (merge-pathnames #P"cleavir_file_list.py"

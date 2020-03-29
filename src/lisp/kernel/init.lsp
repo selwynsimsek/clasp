@@ -162,6 +162,8 @@
 
 ;;; Imports
 (import 'core:quit :ext)
+(import 'core:btcl :ext)
+(import 'core:ihs-argument :ext)
 ;;; EXT exports
 (eval-when (:execute :compile-toplevel :load-toplevel)
   (select-package :ext))
@@ -172,10 +174,10 @@
           source-location
           source-location-pathname
           source-location-offset
-          where
+          source-location-definer
+          source-location-description
           compiled-function-name
           compiled-function-file
-          check-arguments-type
           array-index
           byte8
           integer8
@@ -201,7 +203,9 @@
           stream-encoding-error
           stream-decoding-error
           generate-encoding-hashtable
-          quit))
+          quit
+          btcl
+          ihs-argument))
 (core:*make-special '*module-provider-functions*)
 (core:*make-special '*source-location*)
 (setq *source-location* nil)
@@ -216,6 +220,13 @@
 (eval-when (:execute :compile-toplevel :load-toplevel)
   (core:select-package :core))
 
+;;; Have to do this early so all defvars are ok.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (sys:*make-special '*variable-source-infos*))
+(if (boundp '*variable-source-infos*)
+    nil
+    (set '*variable-source-infos*
+         (make-hash-table :test #'eq :thread-safe t)))
 
 (si:fset 'core::defvar #'(lambda (whole env)
 			     (let ((var (cadr whole))
