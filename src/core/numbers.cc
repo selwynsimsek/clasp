@@ -217,7 +217,9 @@ CL_DEFUN Real_sp cl__max(Real_sp max, List_sp nums) {
   }
   return max;
 }
-
+CL_NAME("TWO-ARG-+-FIXNUM-FIXNUM");
+// inline // iclasp can't link when this is declared inline.. why?
+CL_DEFUN
  Number_sp two_arg__PLUS_FF(Fixnum fa, Fixnum fb)
 {
   Fixnum fc = fa + fb;
