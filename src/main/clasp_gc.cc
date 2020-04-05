@@ -145,7 +145,6 @@
     class ClassHolder_O;
     class PosixTimeDuration_O;
     class Bignum_O;
-    class FastBignum_O;
     class Unused_dummy_O;
     class SimpleMDArray_byte32_t_O;
     class SimpleVector_double_O;

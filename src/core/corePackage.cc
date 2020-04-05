@@ -113,7 +113,7 @@ THE SOFTWARE.
 #include <clasp/core/specialForm.h>
 #include <clasp/core/metaClass.h>
 #include <clasp/core/bignum.h>
-#include <clasp/core/fastbignum.h>
+
 #include <clasp/clbind/class_rep.h>
 
 //

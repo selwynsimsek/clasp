@@ -39,8 +39,6 @@ typedef gctools::smart_ptr<Instance_O> Instance_sp;
  typedef gctools::smart_ptr<StringOutputStream_O> StringOutputStream_sp;
  class Bignum_O;
  typedef gctools::smart_ptr<Bignum_O> Bignum_sp;
- class FastBignum_O;
- typedef gctools::smart_ptr<FastBignum_O> FastBignum_sp;
  class Cache_O;
  typedef gctools::smart_ptr<Cache_O> Cache_sp;
 class Lisp_O;
