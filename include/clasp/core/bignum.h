@@ -40,7 +40,7 @@ template <>
 struct gctools::GCInfo<core::Bignum_O> {
   static bool constexpr CanAllocateWithNoArguments = true;
   static bool constexpr NeedsInitialization = false;
-  static bool constexpr NeedsFinalization = true;
+  static bool constexpr NeedsFinalization = false; // finalizer no longer needed since we are switching to the low-level GMP interface
   static GCInfo_policy constexpr Policy = normal;
 };
 
@@ -58,7 +58,8 @@ public:
   //	void initialize();
 
 private: // instance variables here
-  Bignum _value;
+  mp_limb_t *limbs;
+  mp_size_t numberoflimbs;
 
 public: // Functions here
   static Bignum_sp make(const string &value_in_string);
@@ -66,14 +67,7 @@ public: // Functions here
   static Bignum_sp create( gc::Fixnum i )
   {
     GC_ALLOCATE(Bignum_O, b);
-    b->_value = static_cast<long>(i);
-    return b;
-  };
-
-  static Bignum_sp create( mpz_class v )
-  {
-    GC_ALLOCATE(Bignum_O, b);
-    b->_value = v;
+    b->set_to_fixnum(i);
     return b;
   };
 
@@ -82,7 +76,7 @@ public: // Functions here
   static Bignum_sp create( int64_t v )
   {
     GC_ALLOCATE(Bignum_O, b);
-    b->_value = (signed long int) v;
+    b->set_to_signed_long_int((signed long int) v);
     return b;
   };
 
@@ -91,7 +85,7 @@ public: // Functions here
   static Bignum_sp create( uint64_t v )
   {
     GC_ALLOCATE(Bignum_O, b);
-    b->_value = (unsigned long int) v;
+    b->set_to_unsigned_long_int((unsigned long int) v);
     return b;
   };
 
@@ -101,10 +95,11 @@ public: // Functions here
   {
     GC_ALLOCATE(Bignum_O, b);
 #ifdef _TARGET_OS_DARWIN
-    b->_value = (long long)v;
+    //b->_value = (long long)v;
 #else
-    b->_value = (int64_t)v;
+    //b->_value = (int64_t)v;
 #endif
+    SIMPLE_ERROR(BF("implement create (long long)"));
     return b;
   };
 
@@ -116,9 +111,9 @@ public: // Functions here
   {
     GC_ALLOCATE(Bignum_O, b);
 #ifdef _TARGET_OS_DARWIN
-    b->_value = (unsigned long long)v;
+    //b->_value = (unsigned long long)v;
 #else
-    b->_value = (uint64_t)v;
+    //b->_value = (uint64_t)v;
 #endif
     return b;
   };
@@ -129,9 +124,6 @@ public: // Functions here
 
   NumberType number_type_() const { return number_Bignum; };
 
-  mpz_class &ref() { return this->_value; };
-  mpz_class &mpz_ref() { return this->_value; };
-
   string __repr__() const;
 
   Number_sp signum_() const;
@@ -139,39 +131,44 @@ public: // Functions here
   /*! Return true if the number fits in a signed int */
   bool fits_sint_p();
 
-  virtual void increment() { ++this->_value; };
-  virtual void decrement() { --this->_value; };
+  void set_to_signed_long_int(signed long int i) {
+    SIMPLE_ERROR(BF("implement set_to_signed_long_int"));} ;
+  void set_to_fixnum(gc::Fixnum i) {
+    SIMPLE_ERROR(BF("implement set_to_fixnum"));} ;
+  void set_to_unsigned_long_int(unsigned long int i) {
+    SIMPLE_ERROR(BF("implement set_to_unsigned_long_int"));};
+  
+
+  virtual void increment() {
+    SIMPLE_ERROR(BF("implement increment() for bignums"));};
+  virtual void decrement() {
+    SIMPLE_ERROR(BF("implement decrement() for bignums"));};
   //virtual Number_sp copy() const;
   string description() const {
     stringstream ss;
-    ss << this->_value;
+    ss << this->__repr__(); // good use of __repr__ ?
     return ss.str();
   };
-  void set(gc::Fixnum val) { this->_value = static_cast<long>(val); };
-  void setFixnum(gctools::Fixnum val) { this->_value = static_cast<long>(val); };
-  Bignum get() const;
-  Bignum get_or_if_nil_default(Bignum default_value) const;
+  void set(gc::Fixnum val) ;
+  void setFixnum(gctools::Fixnum val) {
+    SIMPLE_ERROR(BF("implement setFixnum for bignums"));};
   Number_sp abs_() const;
   Number_sp sqrt_() const;
   Number_sp reciprocal_() const;
   Number_sp rational_() const final { return this->asSmartPtr(); };
-  void increment(gc::Fixnum i) { this->_value += static_cast<long>(i); };
-  int sign() const { return this->_value > 0 ? 1 : (this->_value < 0 ? -1 : 0); };
+  void increment(gc::Fixnum i) ;
+  int sign() const { return ((this->numberoflimbs) >=0) ? 1 : -1; }; // probably not correct
 
-  virtual bool zerop_() const { return ((this->_value == 0)); }
-  virtual bool plusp_() const { return ((this->_value > 0)); }
-  virtual bool minusp_() const { return ((this->_value < 0)); }
+  virtual bool zerop_() const { return mpn_zero_p(this->limbs,this->numberoflimbs); } 
+  virtual bool plusp_() const { return ((this->numberoflimbs > 0)); }
+  virtual bool minusp_() const { return ((this->numberoflimbs < 0)); }
 
-  virtual Number_sp negate_() const {
-    return Integer_O::create(-this->_value);
-  }
+  virtual Number_sp negate_() {SIMPLE_ERROR(BF("implement negate_ for bignums"));};
 
-  virtual Number_sp oneMinus_() const {
-    return Integer_O::create(this->_value - 1);
-  }
-  virtual Number_sp onePlus_() const {
-    return Integer_O::create(this->_value + 1);
-  }
+  virtual Number_sp oneMinus_() {
+    SIMPLE_ERROR(BF("implement oneMinus for bignums"));};
+  virtual Number_sp onePlus_() {
+    SIMPLE_ERROR(BF("implement onePlus for bignums"));};
 
   virtual gc::Fixnum bit_length_() const;
 
@@ -185,7 +182,7 @@ public: // Functions here
  public:
   virtual string valueAsString() const {
     stringstream ss;
-    ss << this->_value;
+    ss << this->__repr__();
     return ss.str();
   };
   virtual void setFromString(const string &strVal);
@@ -230,7 +227,6 @@ public: // Functions here
   virtual uint64_t as_uint64_() const;
   string as_uint64_string() const;
 
-  virtual Bignum as_mpz_() const;
   virtual LongLongInt as_LongLongInt_() const;
   virtual unsigned long long as_unsigned_long_long_() const;
   virtual float as_float_() const;
@@ -241,8 +237,10 @@ public: // Functions here
 
   void sxhash_(HashGenerator &hg) const;
 
-  virtual bool evenp_() const { return (mpz_get_ui(this->_value.get_mpz_t()) & 1) == 0; };
-  virtual bool oddp_() const { return (mpz_get_ui(this->_value.get_mpz_t()) & 1) != 0; };
+  virtual bool evenp_() const {
+    SIMPLE_ERROR(BF("implement evenp for bignums"));};
+  virtual bool oddp_() const {
+    SIMPLE_ERROR(BF("implement oddp for bignums"));};
 
   Number_sp log1() const;
 
@@ -250,31 +248,13 @@ public: // Functions here
 
 }; // core namespace
 
-namespace translate {
-  template <>
-    struct from_object<const Bignum &, std::true_type> {
-    typedef Bignum DeclareType;
-    DeclareType _v;
-    from_object(core::T_sp o) {
-      _G();
-      if (core::Bignum_sp bn = o.asOrNull<core::Bignum_O>()) {
-        _v = bn->ref();
-        ;
-        return;
-      }
-      SIMPLE_ERROR_SPRINTF("Handle conversions of %s to Bignum", _rep_(o).c_str());
-    }
-  };
-};
+ // we probably don't want a type translator for the Bignum class if it is no longer being used..
 
 namespace core {
 
   Integer_mv big_ceiling(Bignum_sp a, Bignum_sp b);
   Integer_mv big_floor(Bignum_sp a, Bignum_sp b);
-
-  inline Integer_sp _clasp_big_register_normalize(Bignum_sp x) {
-    return Integer_O::create(x->get());
-  }
+  Integer_sp _clasp_big_register_normalize(Bignum_sp x) ;
 
   inline Integer_sp _clasp_big_floor(Bignum_sp a, Bignum_sp b, Real_sp *rP) {
     Integer_mv res_mv = big_floor(a, b);
@@ -294,18 +274,18 @@ namespace core {
 
   void clasp_big_register_free(Bignum_sp x);
 
-  Integer_sp _clasp_fix_divided_by_big(const Fixnum &x, const Bignum &y);
-  Integer_sp _clasp_big_divided_by_fix(const Bignum &x, const Fixnum &y);
-  Integer_sp _clasp_big_divided_by_big(const Bignum &x, const Bignum &y);
+  //Integer_sp _clasp_fix_divided_by_big(const Fixnum &x, const Bignum &y);
+  //Integer_sp _clasp_big_divided_by_fix(const Bignum &x, const Fixnum &y);
+  //Integer_sp _clasp_big_divided_by_big(const Bignum &x, const Bignum &y);
 
   Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y);
 
-#define CLASP_BIGNUM_SIZE(x) ((x)->_mp_size)
-#define CLASP_BIGNUM_ABS_SIZE(x) \
-  (CLASP_BIGNUM_SIZE(x) < 0 ? -CLASP_BIGNUM_SIZE(x) : CLASP_BIGNUM_SIZE(x))
+//#define CLASP_BIGNUM_SIZE(x) ((x)->_mp_size)
+//#define CLASP_BIGNUM_ABS_SIZE(x) \
+//  (CLASP_BIGNUM_SIZE(x) < 0 ? -CLASP_BIGNUM_SIZE(x) : CLASP_BIGNUM_SIZE(x))
 
   /*! Parse a cstring to a Bignum */
-   Bignum CStrToBignum(const char* c);
+   //Bignum CStrToBignum(const char* c);
 
  };
 

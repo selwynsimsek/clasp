@@ -74,13 +74,14 @@ CL_DEFUN T_sp cl__random(Number_sp olimit, RandomState_sp random_state) {
   } else if (gc::IsA<Bignum_sp>(olimit)) {
     Bignum_sp gbn = gc::As_unsafe<Bignum_sp>(olimit);
     if (clasp_plusp (gbn)) {
-      boost::uniform_int<bmp::mpz_int> gen(0, bmp::mpz_int(gbn->get().get_mpz_t()));
-      auto rnd = gen(random_state->_Producer);
-      bmp::mpz_int v = rnd;
-      mpz_t z;
-      mpz_init(z);
-      mpz_set(z,v.backend().data());
-      return Integer_O::create(mpz_class(z));
+      //boost::uniform_int<bmp::mpz_int> gen(0, bmp::mpz_int(gbn->get().get_mpz_t()));
+      //auto rnd = gen(random_state->_Producer);
+      //bmp::mpz_int v = rnd;
+      //mpz_t z;
+      //mpz_init(z);
+      //mpz_set(z,v.backend().data());
+      //return Integer_O::create(mpz_class(z));
+      SIMPLE_ERROR(BF("do random.cc without mpz"));
     }
     else TYPE_ERROR_cl_random(olimit);
   } else if (DoubleFloat_sp df = olimit.asOrNull<DoubleFloat_O>()) {

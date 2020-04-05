@@ -227,19 +227,21 @@ inline CL_DEFUN Number_sp two_arg__PLUS_FF(Fixnum fa, Fixnum fb)
     return make_fixnum(fc);
   }
     // Overflow case
-  mpz_class za(static_cast<long>(fa));
-  mpz_class zb(static_cast<long>(fb));
-  mpz_class zc = za + zb;
-  return Integer_O::create(zc);
+  //mpz_class za(static_cast<long>(fa));
+  //mpz_class zb(static_cast<long>(fb));
+  //mpz_class zc = za + zb;
+  //return Integer_O::create(zc);
+  
+  SIMPLE_ERROR(BF("implement two_arg__PLUS_FF in the overflow case"));
+  return make_fixnum(fa);
 }
 
 CL_NAME("TWO-ARG-+-FIXNUM-BIGNUM");
 inline
 CL_DEFUN Number_sp two_arg__PLUS_FB(Fixnum fx, Bignum_sp by)
 {
-  mpz_class zx(static_cast<long>(fx));
-  mpz_class zz = zx + by->mpz_ref();
-  return Integer_O::create(zz);
+  SIMPLE_ERROR(BF("implement two_arg__PLUS_FB"));
+  return by;
 }
 
 CL_NAME("TWO-ARG-+");
@@ -252,12 +254,12 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
                             gctools::reinterpret_cast_smart_ptr<Bignum_O>(nb));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
-      mpz_class za(clasp_to_mpz(na));
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class zb_den = rb->denominator_as_mpz();
-      mpz_class za_scaled = za * zb_den;
-      mpz_class zr = za_scaled + rb->numerator_as_mpz();
-      return Rational_O::create(zr, zb_den);
+      //mpz_class za(clasp_to_mpz(na));
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class zb_den = rb->denominator_as_mpz();
+      //mpz_class za_scaled = za * zb_den;
+      //mpz_class zr = za_scaled + rb->numerator_as_mpz(); return Rational_O::create(zr, zb_den);
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Ratio"));
     }
   case_Fixnum_v_SingleFloat : {
       return clasp_make_single_float(clasp_to_float(na) + clasp_to_float(nb));
@@ -266,12 +268,12 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
       return DoubleFloat_O::create(clasp_to_double(na) + clasp_to_double(nb));
     }
   case_Bignum_v_Fixnum : {
-      mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-      mpz_class zc = gc::As<Bignum_sp>(na)->ref() + zb;
-      return Integer_O::create(zc);
+      //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
+      //mpz_class zc = gc::As<Bignum_sp>(na)->ref() + zb; return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
     }
-  case_Bignum_v_Bignum : {
-      return Integer_O::create(gc::As<Bignum_sp>(na)->ref() + gc::As<Bignum_sp>(nb)->ref());
+  case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() + gc::As<Bignum_sp>(nb)->ref());
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Bignum"));
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -283,20 +285,20 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
     }
   case_Ratio_v_Fixnum:
   case_Ratio_v_Bignum : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
-      mpz_class res = ra->numerator_as_mpz() + z;
-      return Rational_O::create(res, ra->denominator_as_mpz());
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
+      //mpz_class res = ra->numerator_as_mpz() + z;return Rational_O::create(res, ra->denominator_as_mpz());
+      SIMPLE_ERROR(BF("implement case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
       // ra.num/ra.den + rb.num/rb.den = (ra.num*rb.den+rb.num*ra.den)/ra.den*rb.den
-      mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
-      mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
-      z = z1 + z;
-      z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz();
-      return Rational_O::create(z, z1);
+      //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
+      //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
+      //z = z1 + z;
+      ///z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz();return Rational_O::create(z, z1);
+      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -369,24 +371,24 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
         return make_fixnum(fc);
       }
     // Overflow case
-      mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
-      mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-      mpz_class zc = za - zb;
-      return Integer_O::create(zc);
+      //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
+     // mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
+     // mpz_class zc = za - zb;return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("implement overflow case"));
     }
   case_Fixnum_v_Bignum : {
-      mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
-      mpz_class zc = za - gc::As<Bignum_sp>(nb)->ref();
-      return Integer_O::create(zc);
+      //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
+      //mpz_class zc = za - gc::As<Bignum_sp>(nb)->ref(); return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
-      mpz_class za(clasp_to_mpz(na));
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class zb_den = rb->denominator_as_mpz();
-      mpz_class za_scaled = za * zb_den;
-      mpz_class zr = za_scaled - rb->numerator_as_mpz();
-      return Rational_O::create(zr, zb_den);
+      //mpz_class za(clasp_to_mpz(na));
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class zb_den = rb->denominator_as_mpz();
+      //mpz_class za_scaled = za * zb_den;
+      //mpz_class zr = za_scaled - rb->numerator_as_mpz();return Rational_O::create(zr, zb_den);
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Ratio"));
     }
   case_Fixnum_v_SingleFloat : {
       return clasp_make_single_float(clasp_to_float(na) - clasp_to_float(nb));
@@ -395,12 +397,12 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       return DoubleFloat_O::create(clasp_to_double(na) - clasp_to_double(nb));
     }
   case_Bignum_v_Fixnum : {
-      mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-      mpz_class zc = gc::As<Bignum_sp>(na)->ref() - zb;
-      return Integer_O::create(zc);
+      //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
+     // mpz_class zc = gc::As<Bignum_sp>(na)->ref() - zb; return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
     }
-  case_Bignum_v_Bignum : {
-      return Integer_O::create(gc::As<Bignum_sp>(na)->ref() - gc::As<Bignum_sp>(nb)->ref());
+  case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() - gc::As<Bignum_sp>(nb)->ref());
+      SIMPLE_ERROR(BF("implement case_Bignum__v_Bignum"));
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -412,19 +414,19 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
     }
   case_Ratio_v_Fixnum:
   case_Ratio_v_Bignum : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
-      mpz_class res = ra->numerator_as_mpz() - z;
-      return Rational_O::create(res, ra->denominator_as_mpz());
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
+      //mpz_class res = ra->numerator_as_mpz() - z;return Rational_O::create(res, ra->denominator_as_mpz());
+      SIMPLE_ERROR(BF("implement case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
-      mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
-      z = z1 - z;
-      z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz();
-      return Rational_O::create(z, z1);
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
+      //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
+      //z = z1 - z;
+      //z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz(); //return Rational_O::create(z, z1);
+      SIMPLE_ERROR(BF("implement case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -495,22 +497,22 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       Fixnum fr;
       bool overflow = __builtin_mul_overflow(fa,fb,&fr);
       if (!overflow) return Integer_O::create(fr);
-      mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
-      mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-      mpz_class zc = za * zb;
-      return Integer_O::create(zc);
+      //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
+     // mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
+      //mpz_class zc = za * zb;return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("case_Fixnum_v_Fixnum"));
     }
   case_Fixnum_v_Bignum : {
-      mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
-      mpz_class zc = za * gc::As<Bignum_sp>(nb)->ref();
-      return Integer_O::create(zc);
+      //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
+      //mpz_class zc = za * gc::As<Bignum_sp>(nb)->ref();return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("case_Fixnum_v_Bignum"));
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
-      mpz_class za(clasp_to_mpz(na));
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class zr = za * rb->numerator_as_mpz();
-      return Rational_O::create(zr, rb->denominator_as_mpz());
+      //mpz_class za(clasp_to_mpz(na));
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class zr = za * rb->numerator_as_mpz();return Rational_O::create(zr, rb->denominator_as_mpz());
+      SIMPLE_ERROR(BF("case_Bignum_v_Ratio"));
     }
   case_Fixnum_v_SingleFloat : {
       return clasp_make_single_float(clasp_to_float(na) * clasp_to_float(nb));
@@ -519,12 +521,12 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       return DoubleFloat_O::create(clasp_to_double(na) * clasp_to_double(nb));
     }
   case_Bignum_v_Fixnum : {
-      mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-      mpz_class zc = gc::As<Bignum_sp>(na)->ref() * zb;
-      return Integer_O::create(zc);
+      //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
+      //mpz_class zc = gc::As<Bignum_sp>(na)->ref() * zb;return Integer_O::create(zc);
+      SIMPLE_ERROR(BF("case_Bignum_v_Fixnum"));
     }
-  case_Bignum_v_Bignum : {
-      return Integer_O::create(gc::As<Bignum_sp>(na)->ref() * gc::As<Bignum_sp>(nb)->ref());
+  case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() * gc::As<Bignum_sp>(nb)->ref());
+      SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -536,14 +538,14 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
     }
   case_Ratio_v_Fixnum:
   case_Ratio_v_Bignum : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      mpz_class z = clasp_to_mpz(nb);
-      return Rational_O::create(z * ra->numerator_as_mpz(), ra->denominator_as_mpz());
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //mpz_class z = clasp_to_mpz(nb);return Rational_O::create(z * ra->numerator_as_mpz(), ra->denominator_as_mpz());
+      SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      return Rational_O::create(ra->numerator_as_mpz() * rb->numerator_as_mpz(), ra->denominator_as_mpz() * rb->denominator_as_mpz());
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);return Rational_O::create(ra->numerator_as_mpz() * rb->numerator_as_mpz(), ra->denominator_as_mpz() * rb->denominator_as_mpz());
+      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -626,8 +628,8 @@ CL_DEFUN Number_sp contagen_div(Number_sp na, Number_sp nb) {
   case_Fixnum_v_Fixnum:
   case_Bignum_v_Fixnum:
   case_Fixnum_v_Bignum:
-  case_Bignum_v_Bignum:
-    return Rational_O::create(clasp_to_mpz(na), clasp_to_mpz(nb));
+  case_Bignum_v_Bignum://  return Rational_O::create(clasp_to_mpz(na), clasp_to_mpz(nb));
+    SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio:
     return Rational_O::create(gc::As<Integer_sp>(contagen_mul(na, gc::As<Ratio_sp>(nb)->denominator())),
@@ -865,26 +867,26 @@ int basic_compare(Number_sp na, Number_sp nb) {
       return 1;
     }
   case_Fixnum_v_Bignum : {
-      mpz_class za = clasp_to_mpz(gc::As<Fixnum_sp>(na));
-      mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
-      if (za < zb)
-        return -1;
-      if (za == zb)
-        return 0;
-      return 1;
+      //mpz_class za = clasp_to_mpz(gc::As<Fixnum_sp>(na));
+      //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
+      //if (za < zb)
+       // return -1;
+      //if (za == zb)
+       // return 0;   //return 1;
+      SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
-      mpz_class za(clasp_to_mpz(na));
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class zb_den = rb->denominator_as_mpz();
-      mpz_class za_scaled = za * rb->denominator_as_mpz();
-      mpz_class zr = za_scaled - rb->numerator_as_mpz();
-      if (zr < 0)
-        return -1;
-      if (zr == 0)
-        return 0;
-      return 1;
+      //mpz_class za(clasp_to_mpz(na));
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class zb_den = rb->denominator_as_mpz();
+      //mpz_class za_scaled = za * rb->denominator_as_mpz();
+      //mpz_class zr = za_scaled - rb->numerator_as_mpz();
+      //if (zr < 0)
+      //  return -1;
+      //if (zr == 0)
+      //  return 0;return 1;
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Ratio"));
     }
   case_Fixnum_v_SingleFloat : {
       float a = clasp_to_float(na);
@@ -907,23 +909,23 @@ int basic_compare(Number_sp na, Number_sp nb) {
 */
     }
   case_Bignum_v_Fixnum : {
-      mpz_class &za(gc::As<Bignum_sp>(na)->ref());
-      mpz_class zb = GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb)));
-      if (za < zb)
-        return -1;
-      if (za == zb)
-        return 0;
-      return 1;
+      //mpz_class &za(gc::As<Bignum_sp>(na)->ref());
+      //mpz_class zb = GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb)));
+      //if (za < zb)
+      //  return -1;
+      //if (za == zb)
+      //  return 0;return 1;
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
     }
   case_Bignum_v_Bignum : {
-      mpz_class &za = gc::As<Bignum_sp>(na)->ref();
-      mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
-      if (za < zb)
-        return -1;
-      if (za == zb)
-        return 0;
-      if (za > zb)
-        return 1;
+      //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
+      //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
+      //if (za < zb)
+      //  return -1;
+      //if (za == zb)
+      //  return 0;
+      //if (za > zb)   return 1;
+      SIMPLE_ERROR(BF("implement case_Bignum_v_Bignum"));
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -947,25 +949,25 @@ int basic_compare(Number_sp na, Number_sp nb) {
     }
   case_Ratio_v_Fixnum:
   case_Ratio_v_Bignum : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
-      mpz_class raz = ra->numerator_as_mpz();
-      if (raz < z)
-        return -1;
-      if (raz == z)
-        return 0;
-      return 1;
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
+      //mpz_class raz = ra->numerator_as_mpz();
+      //if (raz < z)
+      //  return -1;
+      //if (raz == z)
+      //  return 0; return 1;
+      SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
-      mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
-      if (z1 < z)
-        return -1;
-      if (z1 == z)
-        return 0;
-      return 1;
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
+      //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
+      //if (z1 < z)
+      //  return -1;
+      //if (z1 == z)
+      //  return 0; return 1;
+      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -1117,18 +1119,18 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
       return fa == fb;
     }
   case_Fixnum_v_Bignum : {
-      mpz_class za = clasp_to_mpz(gc::As<Fixnum_sp>(na));
-      mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
-      return za == zb;
+      //mpz_class za = clasp_to_mpz(gc::As<Fixnum_sp>(na));
+      //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return za == zb;
+      SIMPLE_ERROR(BF("case_Fixnum_v_Bignum"));
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
-      mpz_class za(clasp_to_mpz(na));
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class zb_den = rb->denominator_as_mpz();
-      mpz_class za_scaled = za * rb->denominator_as_mpz();
-      mpz_class zr = za_scaled - rb->numerator_as_mpz();
-      return (zr == 0);
+      //mpz_class za(clasp_to_mpz(na));
+      ///Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class zb_den = rb->denominator_as_mpz();
+      //mpz_class za_scaled = za * rb->denominator_as_mpz();
+      //mpz_class zr = za_scaled - rb->numerator_as_mpz();return (zr == 0);
+      SIMPLE_ERROR(BF("case_Bignum_v_Ratio"));
     }
   case_Fixnum_v_SingleFloat : {
       float a = clasp_to_float(na);
@@ -1141,14 +1143,14 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
       return a == b;
     }
   case_Bignum_v_Fixnum : {
-      mpz_class &za(gc::As<Bignum_sp>(na)->ref());
-      mpz_class zb = GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb)));
-      return za == zb;
+      //mpz_class &za(gc::As<Bignum_sp>(na)->ref());
+      //mpz_class zb = GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb)));return za == zb;
+      SIMPLE_ERROR(BF("case_Bignum_v_Fixnum"));
     }
   case_Bignum_v_Bignum : {
-      mpz_class &za = gc::As<Bignum_sp>(na)->ref();
-      mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();
-      return (za == zb);
+      //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
+      //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return (za == zb);
+      SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -1164,17 +1166,16 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
     }
   case_Ratio_v_Fixnum:
   case_Ratio_v_Bignum : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
-      mpz_class raz = ra->numerator_as_mpz();
-      return raz == z;
-    }
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //mpz_class z = ra->denominator_as_mpz() * clasp_to_mpz(nb);
+      //mpz_class raz = ra->numerator_as_mpz();return raz == z;
+      SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));}
   case_Ratio_v_Ratio : {
-      Ratio_sp ra = gc::As<Ratio_sp>(na);
-      Ratio_sp rb = gc::As<Ratio_sp>(nb);
-      mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
-      mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
-      return (z1 == z);
+      //Ratio_sp ra = gc::As<Ratio_sp>(na);
+      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
+      //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();return (z1 == z);
+      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -1340,24 +1341,9 @@ bool Number_O::equal(T_sp obj) const {
   return cl__eql(this->asSmartPtr(), obj);
 }
 
-
-Rational_sp Rational_O::create(mpz_class const &num, mpz_class const &denom) {
-  mpz_class q, r;
-  ASSERT(denom != 0);
-  if (denom == 0)
-    ERROR_DIVISION_BY_ZERO(Integer_O::create(num),Integer_O::create(denom));
-  if (denom == 1) {
-    return Integer_O::create(num);
-  }
-  mpz_cdiv_qr(q.get_mpz_t(), r.get_mpz_t(), num.get_mpz_t(), denom.get_mpz_t());
-  if (r == 0) {
-    return Integer_O::create(q);
-  }
-  return Ratio_O::create(num, denom);
-}
-
 Rational_sp Rational_O::create(Integer_sp num, Integer_sp denom) {
-  return Rational_O::create(clasp_to_mpz(num), clasp_to_mpz(denom));
+  SIMPLE_ERROR(BF("Rational_O::create not implemented yet"));
+  //return Rational_O::create(clasp_to_mpz(num), clasp_to_mpz(denom));
 }
 
 CL_DOCSTRING("Return a number that is NAN");
@@ -1379,8 +1365,8 @@ Integer_sp Integer_O::create( gctools::Fixnum v )
   {
     return make_fixnum(v);
   }
-  Bignum z(GMP_LONG(v));
-  return Bignum_O::create( z );
+  //Bignum z(GMP_LONG(v));return Bignum_O::create( z );
+  SIMPLE_ERROR(BF("implement create in the overflow case"));
 }
 
 
@@ -1475,36 +1461,28 @@ Integer_sp Integer_O::create(float v) {
   if (v >= (float)gc::most_negative_fixnum && v < (float)gc::most_positive_fixnum) {
     return make_fixnum((Fixnum)v);
   }
-
-  Bignum rop;
-  mpz_set_d(rop.get_mpz_t(), v);
-  return Bignum_O::create(rop);
+  SIMPLE_ERROR(BF("implement too large a float in Integer_O::create"));
+  //Bignum rop;
+  //mpz_set_d(rop.get_mpz_t(), v);
+  //return Bignum_O::create(rop);
 }
 
 Integer_sp Integer_O::create(double v) {
   if (v >= (double)gc::most_negative_fixnum && v < (double)gc::most_positive_fixnum) {
     return make_fixnum((Fixnum)v);
   }
-  Bignum rop;
-  mpz_set_d(rop.get_mpz_t(), v);
-  return Bignum_O::create(rop);
+  //Bignum rop;
+  //mpz_set_d(rop.get_mpz_t(), v);return Bignum_O::create(rop);
+  SIMPLE_ERROR(BF("implement too large a double in Integer_O::create"));
 }
 
 Integer_sp Integer_O::createLongFloat(LongFloat v) {
   if (v >= (LongFloat)gc::most_negative_fixnum && v < (LongFloat)gc::most_positive_fixnum) {
     return make_fixnum((Fixnum)v);
   }
-  Bignum rop;
-  mpz_set_d(rop.get_mpz_t(), v);
-  return Bignum_O::create(rop);
-}
-
-Integer_sp Integer_O::create(const mpz_class &v) {
-  if (v >= gc::most_negative_fixnum && v <= gc::most_positive_fixnum) {
-    Fixnum fv = mpz_get_si(v.get_mpz_t());
-    return make_fixnum(fv);
-  }
-  return Bignum_O::create(v);
+  //Bignum rop;
+  //mpz_set_d(rop.get_mpz_t(), v);  return Bignum_O::create(rop);
+  SIMPLE_ERROR(BF("implement too large a long float in Integer_O::create"));
 }
 
 }; // namespace core
@@ -1758,13 +1736,13 @@ string Ratio_O::__repr__() const {
   return ss.str();
 }
 
-mpz_class Ratio_O::numerator_as_mpz() const {
-  return clasp_to_mpz(this->_numerator);
-}
+// mpz_class Ratio_O::numerator_as_mpz() const {
+//   return clasp_to_mpz(this->_numerator);
+// }
 
-mpz_class Ratio_O::denominator_as_mpz() const {
-  return clasp_to_mpz(this->_denominator);
-}
+// mpz_class Ratio_O::denominator_as_mpz() const {
+//   return clasp_to_mpz(this->_denominator);
+// }
 
 Number_sp Ratio_O::abs_() const {
   return Ratio_O::create(gc::As_unsafe<Integer_sp>(clasp_abs(gc::As<Integer_sp>(this->_numerator))), this->_denominator);
@@ -1820,13 +1798,9 @@ void Ratio_O::setf_numerator_denominator(Integer_sp inum, Integer_sp idenom)
     }
     return;
   }
-  if (clasp_to_mpz(denom) < 0) {
-    this->_numerator = gc::As<Integer_sp>(clasp_negate(num));
-    this->_denominator = gc::As<Integer_sp>(clasp_negate(denom));
-  } else {
+  
     this->_numerator = num;
-    this->_denominator = denom;
-  }
+    this->_denominator = denom; // have eliminated denominator check
 }
 
 void Ratio_O::setFromString(const string &str) {
@@ -1953,8 +1927,8 @@ Number_sp Bignum_O::sqrt_() const {
   }
 }
 
-Number_sp Bignum_O::reciprocal_() const {
-  return Rational_O::create(clasp_to_mpz(clasp_make_fixnum(1)), this->_value);
+Number_sp Bignum_O::reciprocal_() const {//  return Rational_O::create(clasp_to_mpz(clasp_make_fixnum(1)), this->_value);
+  SIMPLE_ERROR(BF("implement reciprocal for Bignum"));
 }
 
 CL_LAMBDA(arg);
@@ -2924,12 +2898,13 @@ Fixnum clasp_to_fixnum( core::T_sp x )
   ASSERT(!x.single_floatp());
   if ( x.fixnump() ) {
     return x.unsafe_fixnum();
-  } else if (gc::IsA<Bignum_sp>(x)) {
-    Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
-    LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
-      return static_cast<size_t>(bx->mpz_ref().get_si());
-    }
-  }
+  } else if (gc::IsA<Bignum_sp>(x)) 
+    SIMPLE_ERROR(BF("implement clasp_to_fixnum for bignums"));
+    //Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
+   // LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
+   //   return static_cast<size_t>(bx->mpz_ref().get_si());
+   // }
+  //}
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O, make_fixnum(gc::most_negative_fixnum), make_fixnum(gc::most_positive_fixnum)));
 };
 
@@ -2939,10 +2914,11 @@ Fixnum clasp_to_fixnum( core::Integer_sp x )
   if ( x.fixnump() ) {
     return x.unsafe_fixnum();
   } else if (gc::IsA<Bignum_sp>(x)) {
-    Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
-    LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
-      return static_cast<size_t>(bx->mpz_ref().get_si());
-    }
+    //Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
+    //LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
+    //  return static_cast<size_t>(bx->mpz_ref().get_si());
+    SIMPLE_ERROR(BF("implement clasp_to_fixnum(Integer_sp)"));
+    
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O, make_fixnum(gc::most_negative_fixnum), make_fixnum(gc::most_positive_fixnum)));
 };
@@ -3095,6 +3071,7 @@ int16_t clasp_to_int16( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     return bx->as_int16_t();
+    //SIMPLE_ERROR(BF("implement clasp_to_int_16 for bignums"));
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O,
                                     Integer_O::create(gc::most_negative_int16),
@@ -3109,6 +3086,7 @@ uint16_t clasp_to_uint16( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     return bx->as_uint16_t();
+    //SIMPLE_ERROR(BF("implement clasp_to_uint16 for bignums"));
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O,
                                     Integer_O::create(0),
@@ -3135,6 +3113,7 @@ int32_t clasp_to_int32( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     return bx->as_int32_t();
+    //SIMPLE_ERROR(BF("implement clasp_to_int32 for bignums"));
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O,
                                     Integer_O::create(gc::most_negative_int32),
@@ -3149,6 +3128,7 @@ uint32_t clasp_to_uint32( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     return bx->as_uint32_t();
+    //SIMPLE_ERROR(BF("implement clasp_to_uint32 for bignums"));
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O,
                                     Integer_O::create(0),
@@ -3175,6 +3155,7 @@ int64_t clasp_to_int64_t( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     return bx->as_int64_t();
+    //SIMPLE_ERROR(BF("implement clasp_to_int64_t for bignums"));
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O,
                                     Integer_O::create(gc::most_negative_int64),
@@ -3227,16 +3208,7 @@ ptrdiff_t clasp_to_ptrdiff_t( core::T_sp x )
 
   // --- MPZ ---
 
-mpz_class clasp_to_mpz( core::T_sp x )
-{
-  if (x.fixnump())
-  {
-    Fixnum fn = x.unsafe_fixnum();
-    mpz_class z = GMP_LONG(fn);
-    return z;
-  }
-  return (gc::As< Integer_sp >(x))->as_mpz_();
-}
+
 
   // --- LONG LONG ---
 
@@ -3261,9 +3233,10 @@ size_t clasp_to_size_t( core::T_sp x )
     return (size_t) x.unsafe_fixnum();
   } else if (gc::IsA<Bignum_sp>(x)) {
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
-    LIKELY_if ( bx->mpz_ref()>=0 && bx->mpz_ref() <= gc::most_positive_size) {
-      return static_cast<size_t>(bx->mpz_ref().get_ui());
-    }
+    //LIKELY_if ( bx->mpz_ref()>=0 && bx->mpz_ref() <= gc::most_positive_size) {
+    //  return static_cast<size_t>(bx->mpz_ref().get_ui());
+   // }
+    SIMPLE_ERROR(BF("implement clasp_to_size_t for bignums"));
   }    
   TYPE_ERROR(x, Cons_O::create(cl::_sym_UnsignedByte, Bignum_O::create((uint64_t)gc::most_positive_size)));
 }

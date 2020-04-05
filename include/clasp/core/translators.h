@@ -498,27 +498,27 @@ template <>
     }
   };
 
-  template <>
-    struct to_object< mpz_class >
-  {
-    typedef mpz_class DeclareType;
-    static core::T_sp convert( const DeclareType &v )
-    {
-      core::Integer_sp oi = core::Integer_O::create(v);
-      return ( oi );
-    }
-  };
+  // template <>
+  //   struct to_object< mpz_class >
+  // {
+  //   typedef mpz_class DeclareType;
+  //   static core::T_sp convert( const DeclareType &v )
+  //   {
+  //     core::Integer_sp oi = core::Integer_O::create(v);
+  //     return ( oi );
+  //   }
+  // }; //no more mpz
 
-  template <>
-    struct to_object< const mpz_class & >
-  {
-    typedef const mpz_class & DeclareType;
-    static core::T_sp convert( DeclareType v )
-    {
-      core::Integer_sp oi = core::Integer_O::create(v);
-      return ( oi );
-    }
-  };
+  // template <>
+  //   struct to_object< const mpz_class & >
+  // {
+  //   typedef const mpz_class & DeclareType;
+  //   static core::T_sp convert( DeclareType v )
+  //   {
+  //     core::Integer_sp oi = core::Integer_O::create(v);
+  //     return ( oi );
+  //   }
+  // }; //no more mpz
 
   //  String translators
 

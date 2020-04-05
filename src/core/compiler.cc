@@ -128,8 +128,8 @@ __attribute__((optnone)) MaybeDebugStartup::~MaybeDebugStartup() {
       name_ << "NONAME";
     }
     if (name_.str() == "") name_ << (void*)this->fptr;
-    printf("%s us %zu gfds %zu jits: %s\n", _rep_(Integer_O::create(ms)).c_str(), dispatcher_delta, (global_jit_compile_counter-this->start_jit_compile_counter),name_.str().c_str());
-  }
+    //printf("%s us %zu gfds %zu jits: %s\n", _rep_(Integer_O::create(ms)).c_str(), dispatcher_delta, (global_jit_compile_counter-this->start_jit_compile_counter),name_.str().c_str());
+  } //is this safe?
 }
 
 };

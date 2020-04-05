@@ -41,19 +41,12 @@ namespace core {
 CL_PKG_NAME(CorePkg,make-bignum);
 CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string) {
   GC_ALLOCATE(Bignum_O, bn);
-  bn->_value = value_in_string;
+  bn->setFromString(value_in_string);
   return ((bn));
 };
 
-Bignum Bignum_O::as_mpz_() const {
-  return ((this->_value));
-}
-
 LongLongInt Bignum_O::as_LongLongInt_() const {
-  LIKELY_if (this->_value.fits_sint_p()) {
-    return ((this->_value.get_si()));
-  }
-  SIMPLE_ERROR(BF("Cannot convert Bignum %s to long long") % this->__repr__());
+  SIMPLE_ERROR(BF("Implement as_LongLongInt_ for %s") % this->__repr__());
 }
 
 unsigned long long Bignum_O::as_unsigned_long_long_() const {
@@ -65,81 +58,25 @@ unsigned long long Bignum_O::as_unsigned_long_long_() const {
 }
 
 void Bignum_O::sxhash_(HashGenerator &hg) const {
-  hg.addValue(this->_value);
+  hg.addValue(this->numberoflimbs);
+  for(int i=0;i<abs(numberoflimbs);i++)
+    hg.addValue(this->limbs[i]);
 }
 
 gc::Fixnum Bignum_O::as_int_() const {
   IMPLEMENT_MEF("Implement conversion of Bignum to Fixnum");
-  if (this->_value.fits_sint_p()) {
-    return ((this->_value.get_si()));
-  }
+  SIMPLE_ERROR(BF("implement as_int_()"));
   TYPE_ERROR(this->asSmartPtr(), Cons_O::createList(cl::_sym_Integer_O, make_fixnum(gc::most_negative_int), make_fixnum(gc::most_positive_int)));
 }
 
 int64_t Bignum_O::as_int64_() const
 {
-  size_t sizeinbase2 = mpz_sizeinbase(this->_value.get_mpz_t(),2);
-
-  if ( sizeinbase2 > 64 )
-  {
-    goto BAD;
-  }
-  else
-  {
-    int64_t   val   = 0;
-    size_t    count = 0;
-    int       sign  = 0;
-
-    int64_t * valP  = (int64_t *)::mpz_export( &val,
-                                               &count,
-                                               _lisp->integer_ordering()._mpz_import_word_order,
-                                               sizeof(int64_t),
-                                               _lisp->integer_ordering()._mpz_import_endian,
-                                               0,
-                                               this->_value.get_mpz_t() );
-
-    sign = mpz_sgn(this->_value.get_mpz_t());
-    if ( sign < 0 )
-    {
-      val = -val;
-    }
-
-    return val;
-  }
-
- BAD:
-
-  SIMPLE_ERROR(BF("The value %s won't fit into an int64_t") % _rep_(this->asSmartPtr()));
-
+  SIMPLE_ERROR(BF("implement as_int64_()"));
 }
 
 uint64_t Bignum_O::as_uint64_() const
 {
-  size_t sizeinbase2 = mpz_sizeinbase( this->_value.get_mpz_t(), 2 );
-
-  if ( sizeinbase2 > 64 )
-  {
-    goto BAD;
-  }
-  else
-  {
-    uint64_t   val    = 0;
-    size_t     count  = 0;
-
-    uint64_t * valP   = (uint64_t *)::mpz_export( &val,
-                                                  &count,
-                                                  _lisp->integer_ordering()._mpz_import_word_order,
-                                                  sizeof(uint64_t),
-                                                  _lisp->integer_ordering()._mpz_import_endian,
-                                                  0,
-                                                  this->_value.get_mpz_t() );
-    return val;
-  }
-
- BAD:
-
-  SIMPLE_ERROR(BF("The value %s won't fit into an uint64_t") % _rep_(this->asSmartPtr()));
-
+  SIMPLE_ERROR(BF("implement as_uint64_()"));
 }
 
 /*! This helps us debug the as_uint64 function by returning a string representation of the uint64 */
@@ -153,7 +90,8 @@ CL_DEFMETHOD string Bignum_O::as_uint64_string() const {
 
 CL_LISPIFY_NAME("core:fitsSintP");
 CL_DEFMETHOD bool Bignum_O::fits_sint_p() {
-  return ((this->_value.fits_sint_p()));
+  int maxlimbs = ((sizeof(signed int) *8) /GMP_LIMB_BITS);
+  return (this->numberoflimbs<maxlimbs) && (this->numberoflimbs>-maxlimbs);
 }
 
 // --- TRANSLATION METHODS ---
@@ -161,31 +99,31 @@ CL_DEFMETHOD bool Bignum_O::fits_sint_p() {
 // -- SHORT --
 
 inline short Bignum_O::as_short() const {
-  return static_cast<short>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_short"));
 }
 
 inline unsigned short Bignum_O::as_ushort() const {
-  return static_cast<unsigned short>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_ushort"));
 }
 
 // -- INT --
 
 inline int Bignum_O::as_int() const {
-  return static_cast<int>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_int"));
 }
 
 inline unsigned int Bignum_O::as_uint() const {
-  return static_cast<unsigned int>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_uint"));
 }
 
 // --  LONG --
 
 inline long Bignum_O::as_long() const {
-  return static_cast<long>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_long"));
 }
 
 inline unsigned long Bignum_O::as_ulong() const {
-  return static_cast<unsigned long>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_ulong"));
 }
 
 // -- LONG LONG --
@@ -207,136 +145,120 @@ inline unsigned long long Bignum_O::as_ulonglong() const {
 // -- INT8 --
 
 inline int8_t Bignum_O::as_int8_t() const {
-  return static_cast<int8_t>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_int8_t"));
 }
 
 inline uint8_t Bignum_O::as_uint8_t() const {
-  return static_cast<uint8_t>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_uint8_t"));
 }
 
 // -- INT16 --
 
 inline int16_t Bignum_O::as_int16_t() const {
-  return static_cast<int16_t>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_int16_t"));
 }
 
 inline uint16_t Bignum_O::as_uint16_t() const {
-  return static_cast<uint16_t>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_uint16_t"));
 }
 
 // -- INT32 --
 
 inline int32_t Bignum_O::as_int32_t() const {
-  return static_cast<int32_t>(this->get().get_si());
+  SIMPLE_ERROR(BF("implement as_int32_t"));
 }
 
 inline uint32_t Bignum_O::as_uint32_t() const {
-  return static_cast<uint32_t>(this->get().get_ui());
+  SIMPLE_ERROR(BF("implement as_uint32_t"));
 }
 
 // -- INT64 --
 
 inline int64_t Bignum_O::as_int64_t() const {
-  return static_cast<int64_t>( this->as_int64_() );
+  SIMPLE_ERROR(BF("implement as_int64_t"));
 }
 
 inline uint64_t Bignum_O::as_uint64_t() const {
-  return static_cast<uint64_t>( this->as_uint64_() );
+  SIMPLE_ERROR(BF("implement as_uint64_t"));
 }
 
 // -- UINTPTR_T --
 
 inline uintptr_t Bignum_O::as_uintptr_t() const
 {
-  if( this->get().get_si() >= 0 )
-  {
-    return static_cast<uintptr_t>( this->get().get_si() );
-  }
-
-  SIMPLE_ERROR(BF("Value %llud out of range for type UINTPTR_T .") % (unsigned long long) this->get().get_si() );
+  SIMPLE_ERROR(BF("implement as_uintptr_t"));
 }
 
 // -- PTRDIFF_T --
 
 inline ptrdiff_t Bignum_O::as_ptrdiff_t() const {
-  if( this->get().get_si() >= 0 ) {
-    return static_cast<ptrdiff_t>(  this->get().get_si() );
-  }
-  SIMPLE_ERROR(BF("Value %lld out of range for type PTRDIFF_T .") % (long long) this->get().get_si() );
+  SIMPLE_ERROR(BF("implement as_uintptr_t"));
+  
 }
 
 // -- SIZE_T --
 
 inline size_t Bignum_O::as_size_t() const {
-  if(( this->get().get_si() >= gc::most_negative_size ) && ( this->get().get_si() <= gc::most_positive_size )) {
-    return static_cast<size_t>( this->get().get_si() );
-  }
-
-  SIMPLE_ERROR(BF("Value %lld out of range for integer type SIZE_T .") % (long long) this->get().get_si() );
+  SIMPLE_ERROR(BF("implement as_size_t"));
 }
 
 // -- SSIZE_T --
 
 inline ssize_t Bignum_O::as_ssize_t() const {
-  if(( this->get().get_si() >= gc::most_negative_ssize ) && ( this->get().get_si() <= gc::most_positive_ssize )) {
-    return static_cast<ssize_t>( this->get().get_si() );
-  }
-
-  SIMPLE_ERROR(BF("Value %lld out of range for integer type SSIZE_T .") % (long long) this->get().get_si() );
+ 
+  SIMPLE_ERROR(BF("implement as_size_t"));
 }
 
 // --- ---
 
 float Bignum_O::as_float_() const {
-  return static_cast<float_t>( (this->_value.get_d()) );
+  
+  SIMPLE_ERROR(BF("implement as_float_"));
 }
 
 double Bignum_O::as_double_() const {
-  return static_cast<double>( (this->_value.get_d()) );
+  
+  SIMPLE_ERROR(BF("implement as_double_"));
 }
 
 LongFloat Bignum_O::as_long_float_() const {
-  return static_cast<LongFloat>( (this->_value.get_d()) );
+  
+  SIMPLE_ERROR(BF("implement as_long_float_"));
 }
 
 // --- END OF TRANSLATION METHODS ---
 
-void Bignum_O::setFromString(const string &strVal) {
-  this->_value = strVal;
+void Bignum_O::setFromString(const string &value_in_string) {
+  this->numberoflimbs=(mp_size_t)ceil((log(10)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length()); // doesn't deal with negative numbers yet!
+  this->limbs=(mp_limb_t*)GC_MALLOC(this->numberoflimbs);
+  const char* c_string = value_in_string.c_str();
+  unsigned char* c_out_string = (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
+  for(int i=0;i<value_in_string.length();i++){
+    c_out_string[i]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
+  }  
+  this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),10);
+  free(c_out_string);
 }
 
 gc::Fixnum Bignum_O::bit_length_() const {
-  Bignum x = this->_value;
-  if (this->sign() < 0) {
-    // issue #536
-    // from ECL: logxor(2,x,ecl_make_fixnum(-1)); before calling mpz_sizeinbase on x
-    mpz_class temp;
-    mpz_xor(temp.get_mpz_t(),clasp_to_mpz(clasp_make_fixnum(2)).get_mpz_t(), x.get_mpz_t());
-    mpz_class temp1;
-    mpz_xor(temp1.get_mpz_t(), temp.get_mpz_t(), clasp_to_mpz(clasp_make_fixnum(-1)).get_mpz_t());
-    return mpz_sizeinbase(temp1.get_mpz_t(), 2);
-  } else {
-    return mpz_sizeinbase(x.get_mpz_t(), 2);
-  }
+  SIMPLE_ERROR(BF("implement bit_length"));
 }
 
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
-  if (bits == 0)
-    return this->asSmartPtr();
-  Bignum res;
-  if (bits < 0) {
-    mpz_div_2exp(res.get_mpz_t(), this->_value.get_mpz_t(), -bits);
-  } else {
-    mpz_mul_2exp(res.get_mpz_t(), this->_value.get_mpz_t(), bits);
-  }
-  return Integer_O::create(res);
+  SIMPLE_ERROR(BF("implement shift"));
 }
 
 string Bignum_O::__repr__() const {
   stringstream ss;
-  ss << this->_value;
+  unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs));
+  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,this->numberoflimbs); // base 8 for now for testing purposes
+  for(int i=0;i<stringlength;i++){
+    rawcstring[i]+='0';
+  }
+  ss << rawcstring;
+  free(rawcstring);
   return ((ss.str()));
 }
 
@@ -349,68 +271,26 @@ Number_sp Bignum_O::signum_() const {
     return immediate_fixnum<Number_O>(-1);
 }
 
-Bignum Bignum_O::get() const {
-  return ((this->_value));
-}
-
 Number_sp Bignum_O::abs_() const {
-  GC_ALLOCATE(Bignum_O, cp);
-  cp->_value = this->_value * ::sgn(this->_value);
-  return ((cp));
+  SIMPLE_ERROR(BF("implement abs_"));
 }
 
 bool Bignum_O::eql_(T_sp o) const {
-  if (o.fixnump()) {
-    return (this->_value == clasp_to_mpz(gc::As<Fixnum_sp>(o)));
-  } else if (Integer_sp oi = o.asOrNull<Integer_O>()) {
-    return (this->_value == clasp_to_mpz(oi));
-  }
-  return false;
+  SIMPLE_ERROR(BF("implement eql_"));
 }
 
 Integer_mv big_ceiling(Bignum_sp a, Bignum_sp b) {
-  Bignum mpzq, mpzr;
-  mpz_cdiv_qr(mpzq.get_mpz_t(),
-              mpzr.get_mpz_t(),
-              a->ref().get_mpz_t(),
-              b->ref().get_mpz_t());
-  return Values(Integer_O::create(mpzq), Integer_O::create(mpzr));
+  SIMPLE_ERROR(BF("implement big_ceiling"));
 }
 
 Integer_mv big_floor(Bignum_sp a, Bignum_sp b) {
-  Bignum_sp q = my_thread->bigRegister0();
-  Bignum_sp r = my_thread->bigRegister1();
-  mpz_fdiv_qr(q->ref().get_mpz_t(), r->ref().get_mpz_t(),
-              a->ref().get_mpz_t(), b->ref().get_mpz_t());
-  return Values(Integer_O::create(q->get()), Integer_O::create(r->get()));
+  SIMPLE_ERROR(BF("implement big_floor"));
 }
 
 Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y) {
-  Bignum zz;
-  mpz_gcd(zz.get_mpz_t(), x->ref().get_mpz_t(), y->ref().get_mpz_t());
-  return Bignum_O::create(zz);
+  SIMPLE_ERROR(BF("implement clasp_big_gcd"));
 }
 
-Integer_sp _clasp_big_divided_by_big(const Bignum &a, const Bignum &b) {
-  size_t size_a = CLASP_BIGNUM_ABS_SIZE(a.get_mpz_t());
-  size_t size_b = CLASP_BIGNUM_ABS_SIZE(b.get_mpz_t());
-  Fixnum size_z = size_a - size_b + 1;
-  if (size_z <= 0)
-    size_z = 1;
-  Bignum z;
-  mpz_tdiv_q(z.get_mpz_t(), a.get_mpz_t(), b.get_mpz_t());
-  return Integer_O::create(z);
-}
-
-Integer_sp _clasp_big_divided_by_fix(const Bignum &x, const Fixnum &y) {
-  Bignum by(GMP_LONG(y));
-  return _clasp_big_divided_by_big(x, by);
-}
-
-Integer_sp _clasp_fix_divided_by_big(const Fixnum &x, const Bignum &y) {
-  Bignum bx(GMP_LONG(x));
-  return _clasp_big_divided_by_big(bx, y);
-}
 
 void clasp_big_register_free(Bignum_sp b) {
   // ECL just returns but we
@@ -418,12 +298,5 @@ void clasp_big_register_free(Bignum_sp b) {
   return;
 }
 
-Bignum CStrToBignum(const char *str) {
-  Bignum bn = 0;
-  for (const unsigned char *cp = (const unsigned char *)str; *cp; ++cp) {
-    bn = (bn << 7) | ((*cp) & 0x7f);
-  }
-  return bn;
-}
 
 };

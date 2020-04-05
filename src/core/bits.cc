@@ -134,92 +134,108 @@ static bit_operator fixnum_operations[boolOpsMax] = {
 
 static void
 mpz_ior_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_ior(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_ior(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_ior_op for bignums"));
 }
 
 static void
 mpz_xor_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_xor(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_xor(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_xor_op for bignums"));
 }
 
 static void
 mpz_and_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_and(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_and(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_and_op for bignums"));
 }
 
 static void
 mpz_eqv_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_xor(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
-  mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  //mpz_xor(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_eqv_op for bignums"));
 }
 
 static void
 mpz_nand_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_and(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
-  mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+ // mpz_and(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_nand_op for bignums"));
 }
 
 static void
 mpz_nor_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_ior(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
-  mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  //mpz_ior(out->get().get_mpz_t(), i->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_nor_op for bignums"));
 }
 
 static void
 mpz_andc1_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
-  mpz_and(out->get().get_mpz_t(), out->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
+  //mpz_and(out->get().get_mpz_t(), out->get().get_mpz_t(), j->get().get_mpz_t());  
+  SIMPLE_ERROR(BF("implement mpz_andc1_op for bignums"));
 }
 
 static void
 mpz_orc1_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
-  mpz_ior(out->get().get_mpz_t(), out->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
+  //mpz_ior(out->get().get_mpz_t(), out->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_orc1_op for bignums"));
 }
 
 static void
 mpz_andc2_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
   /* (i & ~j) = ~((~i) | j) */
-  mpz_orc1_op(out, i, j);
-  mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  //mpz_orc1_op(out, i, j);
+  //mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_andc2_op for bignums"));
 }
 
 static void
 mpz_orc2_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
   /* (i | ~j) = ~((~i) & j) */
-  mpz_andc1_op(out, i, j);
-  mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  //mpz_andc1_op(out, i, j);
+  //mpz_com(out->get().get_mpz_t(), out->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_orc2_op for bignums"));
 }
 
 static void
 mpz_b_clr_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_set_si(out->get().get_mpz_t(), 0);
+  //mpz_set_si(out->get().get_mpz_t(), 0);
+  SIMPLE_ERROR(BF("implement mpz_b_clr_op for bignums"));
 }
 
 static void
 mpz_b_set_op(Bignum_sp o, Bignum_sp i, Bignum_sp j) {
-  mpz_set_si(o->get().get_mpz_t(), -1);
+  //mpz_set_si(o->get().get_mpz_t(), -1);
+  SIMPLE_ERROR(BF("implement mpz_b_set_op for bignums"));
 }
 
 static void
 mpz_b_1_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
   if (i != out)
-    mpz_set(out->get().get_mpz_t(), i->get().get_mpz_t());
+    SIMPLE_ERROR(BF("implement mpz_b_1_op for bignums"));
+    //mpz_set(out->get().get_mpz_t(), i->get().get_mpz_t());
 }
 
 static void
 mpz_b_2_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_set(out->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_set(out->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_b_2_op for bignums"));
 }
 
 static void
 mpz_b_c1_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), i->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_b_c1_op for bignums"));
 }
 
 static void
 mpz_b_c2_op(Bignum_sp out, Bignum_sp i, Bignum_sp j) {
-  mpz_com(out->get().get_mpz_t(), j->get().get_mpz_t());
+  //mpz_com(out->get().get_mpz_t(), j->get().get_mpz_t());
+  SIMPLE_ERROR(BF("implement mpz_b_c2_op for bignums"));
 }
 
 typedef void (*_clasp_big_binary_op)(Bignum_sp out, Bignum_sp o1, Bignum_sp o2);
@@ -279,7 +295,8 @@ T_sp clasp_boole(int op, T_sp x, T_sp y) {
     } else {
       ERROR_WRONG_TYPE_NTH_ARG(cl::_sym_boole, 3, y, cl::_sym_integer);
     }
-    return _clasp_big_register_normalize(x_copy);
+    //return _clasp_big_register_normalize(x_copy);
+    SIMPLE_ERROR(BF("implement clasp_big_register_normalize for bignums"));
   } else {
     ERROR_WRONG_TYPE_NTH_ARG(cl::_sym_boole, 2, x, cl::_sym_integer);
   }
@@ -303,7 +320,8 @@ CL_DEFUN T_sp cl__logbitp(Integer_sp p, Integer_sp x) {
         i = ((y >> n) & 1);
       }
     } else {
-      i = mpz_tstbit(gc::As<Bignum_sp>(x)->as_mpz_().get_mpz_t(), n);
+      //i = mpz_tstbit(gc::As<Bignum_sp>(x)->as_mpz_().get_mpz_t(), n);
+      SIMPLE_ERROR(BF("implement logbitp for bignums"));
     }
   } else {
     if (x.fixnump())
@@ -414,46 +432,47 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     mpz_class temp_bignum;
     switch (operation) {
     case boole_and:
-        mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_xor:
-        mpz_xor(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_xor(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_ior:
-        mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_eqv:
-        mpz_xor(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
+        //mpz_xor(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
         break;
     case boole_andc1:
-        mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
-        mpz_and(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
+        //mpz_and(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_andc2:
-        mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
+        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
         break;
     case boole_orc1:
-        mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
-        mpz_ior(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
+        //mpz_ior(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_orc2:
-        mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
+        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
         break;
     case boole_nand:
-        mpz_and(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
+        //mpz_and(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        ///mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
         break;
     case boole_nor:
-        mpz_ior(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
+        //mpz_ior(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        //mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
         break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));
     }
-    return Integer_O::create(result_bignum);
+    SIMPLE_ERROR(BF("implement bits for bignums"));
+    //return Integer_O::create(result_bignum);
   }
 }
 
@@ -496,7 +515,8 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
   }
   else {
     acc_fixnum_p = false;
-    acc_bignum = clasp_to_mpz(first);
+    //acc_bignum = clasp_to_mpz(first);
+    SIMPLE_ERROR(BF("implement log_operation_rest for bignums"));
   }
   for (auto cur : (List_sp)oCdr(integers)) {
     Integer_sp icur = gc::As<Integer_sp>(oCar(cur));
@@ -518,26 +538,27 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
       } else {
         // need to go bignum
         acc_fixnum_p = false;
-        acc_bignum = clasp_to_mpz(Integer_O::create(acc_fixnum));
+        //acc_bignum = clasp_to_mpz(Integer_O::create(acc_fixnum));
+        SIMPLE_ERROR(BF("implement mpz_ior_op for bignums"));
       }
     }
     // Now either acc_fixnum_p was false and icur is a fixnum, or acc_fixnum_p was true.
     mpz_class temp;
     mpz_class temp1;
     switch (operation) {
-    case boole_and:
-        mpz_and(temp.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-        break;
-    case boole_xor:
-        mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-        break;
-    case boole_ior:
-        mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-        break;
-    case boole_eqv:
-        mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-        mpz_com(temp.get_mpz_t(), temp1.get_mpz_t());
-        break;
+    // case boole_and:
+    //     mpz_and(temp.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
+    //     break;
+    // case boole_xor:
+    //     mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
+    //     break;
+    // case boole_ior:
+    //     mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
+    //     break;
+    // case boole_eqv:
+    //     mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
+    //     mpz_com(temp.get_mpz_t(), temp1.get_mpz_t());
+    //     break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));
     }
@@ -545,8 +566,9 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
   } // loop over integers
   if (acc_fixnum_p)
     return Integer_O::create(acc_fixnum);
-  else
-    return Integer_O::create(acc_bignum);
+  else 
+    SIMPLE_ERROR(BF("implement mpz_ior_op for bignums"));
+    //return Integer_O::create(acc_bignum);
 }
 
 CL_LAMBDA(&rest integers);
@@ -627,10 +649,11 @@ CL_DEFUN Integer_sp cl__lognot(Integer_sp a) {
     return clasp_make_fixnum(a.unsafe_fixnum() ^ -1);   
   }
   else {
-    mpz_class za = clasp_to_mpz(a);
-    mpz_class cza;
-    mpz_com(cza.get_mpz_t(), za.get_mpz_t());
-    return Integer_O::create(cza);
+    SIMPLE_ERROR(BF("implement lognot for bignums"));
+    // mpz_class za = clasp_to_mpz(a);
+    // mpz_class cza;
+    // mpz_com(cza.get_mpz_t(), za.get_mpz_t());
+    // return Integer_O::create(cza);
   }
 };
 

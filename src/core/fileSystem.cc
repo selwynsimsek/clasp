@@ -154,11 +154,11 @@ Path_mv af_makePath(List_sp args) {
   return (Values(me));
 }
 
-void Path_O::sxhash_(HashGenerator &hg) const {
+void Path_O::sxhash_(HashGenerator &hg) const { // put in a proper sxhash! what was this anyway
   _OF();
   string ts = this->_Path.string();
-  Bignum bn = CStrToBignum(ts.c_str());
-  hg.addValue(bn);
+  //Bignum bn = CStrToBignum(ts.c_str());
+  //hg.addValue(bn); // fix this hack!
 }
 
 CL_LISPIFY_NAME("last_write_time");

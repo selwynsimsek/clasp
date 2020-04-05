@@ -89,7 +89,7 @@ CL_DEFUN T_sp core__bformat(T_sp destination, const string &original_control, Li
       } else if (core__bignump(fobj)) {
         Bignum_sp flli = gc::As<Bignum_sp>(fobj);
         stringstream ss;
-        ss << clasp_to_mpz(flli);
+        //ss << clasp_to_mpz(flli);
         fmter % ss.str();
       } else if (cl__stringp(fobj)) {
         String_sp ftext = gc::As_unsafe<String_sp>(fobj);

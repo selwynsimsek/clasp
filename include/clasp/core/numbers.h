@@ -46,6 +46,7 @@
 #include <clasp/core/numerics.h>
 #include <clasp/core/bignum.fwd.h>
 #include <clasp/core/numbers.fwd.h>
+#include <clasp/core/foundation.h>
 
 //Class Hierarchy
 //Number_0
@@ -219,7 +220,6 @@ namespace core {
 */
     virtual gc::Fixnum as_int_() const { SUBIMP(); }
     virtual uint as_uint_() const { SUBIMP(); }
-    virtual Bignum as_mpz_() const { SUBIMP(); }
     virtual LongLongInt as_LongLongInt_() const { SUBIMP(); };
     virtual float as_float_() const { SUBIMP(); };
     virtual double as_double_() const { SUBIMP(); }
@@ -260,7 +260,6 @@ namespace core {
     LISP_CLASS(core, ClPkg, Rational_O, "rational",Real_O);
 
   public:
-    static Rational_sp create(mpz_class const &num, mpz_class const &denom);
     static Rational_sp create(Integer_sp num, Integer_sp denom);
 
   public:
@@ -288,19 +287,12 @@ namespace core {
   public:
     /*! Return a Cons (integer low high) */
     static T_sp makeIntegerType(gc::Fixnum low, gc::Fixnum high);
-    static Integer_sp create(const mpz_class &v);
     static Integer_sp create(gctools::Fixnum v);
     static Integer_sp create(const string &v) {
       return Integer_O::create(v.c_str());
     };
     static Integer_sp create(const char *v) {
-      if (v[0] == '+') {
-	// Skip leading +
-	mpz_class zv(&v[1]);
-	return create(zv);
-      }
-      mpz_class zv(v);
-      return create(zv);
+      SIMPLE_ERROR(BF("implement Integer_O::create"));
     };
 
     static Integer_sp create( int8_t v);
@@ -673,9 +665,6 @@ namespace core {
       v->setf_numerator_denominator(num,denom);
       return v;
     };
-    static Ratio_sp create(mpz_class const &num, mpz_class const &denom) {
-      return Ratio_O::create(Integer_O::create(num),Integer_O::create(denom));
-    }
     static Ratio_sp create(const char *str) {
       GC_ALLOCATE(Ratio_O, r);
       r->setFromString(str);
@@ -692,8 +681,6 @@ namespace core {
     Integer_sp denominator() const { return this->_denominator; };
     Integer_sp num() const { return this->_numerator; };
     Integer_sp den() const { return this->_denominator; };
-    mpz_class numerator_as_mpz() const;
-    mpz_class denominator_as_mpz() const;
 
     void sxhash_(HashGenerator &hg) const;
     //	virtual Number_sp copy() const;
@@ -1057,10 +1044,7 @@ namespace core {
         }
         return immediate_fixnum<Integer_O>(y);
       } else {
-        Bignum val(static_cast<signed long>(n.unsafe_fixnum()));
-        Bignum res;
-        mpz_mul_2exp(res.get_mpz_t(), val.get_mpz_t(), bits);
-        return Integer_O::create(res);
+        SIMPLE_ERROR(BF("implement shift for bignums"));
       }
     }
     return n->shift_(bits);
@@ -1104,7 +1088,6 @@ namespace core {
 
 
   uintptr_t         clasp_to_uintptr_t( core::T_sp );
-  mpz_class           clasp_to_mpz( core::T_sp );
   cl_index            clasp_to_size( core::T_sp );
 
   float               clasp_to_float( core::Number_sp );

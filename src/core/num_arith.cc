@@ -62,16 +62,19 @@ Integer_sp clasp_integer_divide(Integer_sp x, Integer_sp y) {
         ERROR_DIVISION_BY_ZERO(x, y);
       return (clasp_make_fixnum(x.unsafe_fixnum() / y.unsafe_fixnum()));
     } else if (ty == number_Bignum) {
-      return _clasp_fix_divided_by_big(x.unsafe_fixnum(), gc::As_unsafe<Bignum_sp>(y)->get());
+      SIMPLE_ERROR(BF("implement integer divide for bignums"));
+      //return _clasp_fix_divided_by_big(x.unsafe_fixnum(), gc::As_unsafe<Bignum_sp>(y)->get());
     } else {
       ERROR_WRONG_TYPE_NTH_ARG(core::_sym_integer_divide, 2, y, cl::_sym_Integer_O);
     }
   }
   if (tx == number_Bignum) {
     if (ty == number_Bignum) {
-      return _clasp_big_divided_by_big(gc::As_unsafe<Bignum_sp>(x)->get(), gc::As_unsafe<Bignum_sp>(y)->get());
+      SIMPLE_ERROR(BF("implement integer divide for big on big"));
+      //return _clasp_big_divided_by_big(gc::As_unsafe<Bignum_sp>(x)->get(), gc::As_unsafe<Bignum_sp>(y)->get());
     } else if (ty == number_Fixnum) {
-      return _clasp_big_divided_by_fix(gc::As_unsafe<Bignum_sp>(x)->get(), y.unsafe_fixnum());
+      //return _clasp_big_divided_by_fix(gc::As_unsafe<Bignum_sp>(x)->get(), y.unsafe_fixnum());
+      SIMPLE_ERROR(BF("implement integer drivide for big on fix"));
     } else {
       QERROR_WRONG_TYPE_NTH_ARG(2, y, cl::_sym_Integer_O);
     }

@@ -2173,11 +2173,12 @@ CL_DEFUN APInt_sp APInt_O::makeAPInt(core::Integer_sp value) {
     // It's a bignum so lets convert the bignum to a string and put it into an APInt
     char *asString = NULL;
     core::Bignum_sp bignum_value = gc::As<core::Bignum_sp>(value);
-    mpz_class &mpz_val = bignum_value->ref();
-    int mpz_size_in_bits = mpz_sizeinbase(mpz_val.get_mpz_t(), 2);
-    asString = ::mpz_get_str(NULL, 10, mpz_val.get_mpz_t());
-    self->_value = llvm::APInt(mpz_size_in_bits, llvm::StringRef(asString, strlen(asString)), 10);
-    free(asString);
+    //mpz_class &mpz_val = bignum_value->ref();
+    //int mpz_size_in_bits = mpz_sizeinbase(mpz_val.get_mpz_t(), 2);
+    //asString = ::mpz_get_str(NULL, 10, mpz_val.get_mpz_t());
+    //self->_value = llvm::APInt(mpz_size_in_bits, llvm::StringRef(asString, strlen(asString)), 10);
+    //free(asString);
+    SIMPLE_ERROR(BF("implement makeAPInt for bignum"));
   }
   return self;
 }
@@ -2214,16 +2215,17 @@ CL_DEFUN APInt_sp APInt_O::makeAPIntWidth(core::Integer_sp value, uint width, bo
     // It's a bignum so lets convert the bignum to a string and put it into an APInt
     char *asString = NULL;
     core::Bignum_sp bignum_value = gc::As<core::Bignum_sp>(value);
-    mpz_class &mpz_val = bignum_value->ref();
-    int mpz_size_in_bits = mpz_sizeinbase(mpz_val.get_mpz_t(), 2);
-    asString = ::mpz_get_str(NULL, 10, mpz_val.get_mpz_t());
-    apint = llvm::APInt(width, llvm::StringRef(asString, strlen(asString)), 10);
-    free(asString);
-    numbits = mpz_size_in_bits;
-    if (numbits > width) {
-      string numstr = asString;
-      SIMPLE_ERROR(BF("You tried to create an unsigned I%d with a value[%s] that requires %d bits to represent") % width % numstr % mpz_size_in_bits);
-    }
+    SIMPLE_ERROR(BF("implement makeAPIntWidth for new bignums"));
+    //mpz_class &mpz_val = bignum_value->ref();
+    //int mpz_size_in_bits = mpz_sizeinbase(mpz_val.get_mpz_t(), 2);
+    //asString = ::mpz_get_str(NULL, 10, mpz_val.get_mpz_t());
+    //apint = llvm::APInt(width, llvm::StringRef(asString, strlen(asString)), 10);
+    //free(asString);
+    //numbits = mpz_size_in_bits;
+    //if (numbits > width) {
+    //  string numstr = asString;
+    //  SIMPLE_ERROR(BF("You tried to create an unsigned I%d with a value[%s] that requires %d bits to represent") % width % numstr % mpz_size_in_bits);
+    //}
   }
   self->_value = apint;
   return self;
