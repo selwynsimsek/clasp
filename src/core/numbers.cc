@@ -218,8 +218,7 @@ CL_DEFUN Real_sp cl__max(Real_sp max, List_sp nums) {
   return max;
 }
 
-CL_NAME("TWO-ARG-+-FIXNUM-FIXNUM");
-inline CL_DEFUN Number_sp two_arg__PLUS_FF(Fixnum fa, Fixnum fb)
+ Number_sp two_arg__PLUS_FF(Fixnum fa, Fixnum fb)
 {
   Fixnum fc = fa + fb;
   if (fc >= gc::most_negative_fixnum
@@ -236,13 +235,13 @@ inline CL_DEFUN Number_sp two_arg__PLUS_FF(Fixnum fa, Fixnum fb)
   return make_fixnum(fa);
 }
 
-CL_NAME("TWO-ARG-+-FIXNUM-BIGNUM");
-inline
-CL_DEFUN Number_sp two_arg__PLUS_FB(Fixnum fx, Bignum_sp by)
-{
-  SIMPLE_ERROR(BF("implement two_arg__PLUS_FB"));
-  return by;
-}
+//CL_NAME("TWO-ARG-+-FIXNUM-BIGNUM");
+// inline
+// CL_DEFUN Number_sp two_arg__PLUS_FB(Fixnum fx, Bignum_sp by)
+// {
+//   SIMPLE_ERROR(BF("implement two_arg__PLUS_FB"));
+//   return by;
+// }
 
 CL_NAME("TWO-ARG-+");
 CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
@@ -250,8 +249,8 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
   case_Fixnum_v_Fixnum :
     return two_arg__PLUS_FF(na.unsafe_fixnum(),nb.unsafe_fixnum());
   case_Fixnum_v_Bignum :
-    return two_arg__PLUS_FB(na.unsafe_fixnum(),
-                            gctools::reinterpret_cast_smart_ptr<Bignum_O>(nb));
+    SIMPLE_ERROR(BF("do fixnum v bignum +"));
+    //return two_arg__PLUS_FB(na.unsafe_fixnum(), gctools::reinterpret_cast_smart_ptr<Bignum_O>(nb));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
       //mpz_class za(clasp_to_mpz(na));
