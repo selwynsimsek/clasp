@@ -164,7 +164,8 @@ core::Integer_sp type_id_toClassRegistryKey(type_id const &info) {
   //mpz_class zz(GMP_ULONG((uintptr_t)(const_cast<void *>(static_cast<const void *>(info.get_type_info())))));
   //core::Integer_sp p = core::Integer_O::create(zz);
   //return p;
-  SIMPLE_ERROR(BF("implement type_id_toClassRegistryKey"));
+  return core::Integer_O::create((uintptr_t) (const_cast<void *>(static_cast<const void *>(info.get_type_info()))) );
+  //SIMPLE_ERROR(BF("implement type_id_toClassRegistryKey"));
 }
 
 void ClassRegistry_O::add_class(type_id const &info, ClassRep_sp crep) {

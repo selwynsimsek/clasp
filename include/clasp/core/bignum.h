@@ -45,31 +45,42 @@ struct gctools::GCInfo<core::Bignum_O> {
 };
 
 namespace core {
+SMART(Bignum);
 class Bignum_O : public Integer_O {
   LISP_CLASS(core, ClPkg, Bignum_O, "Bignum",Integer_O);
   //    DECLARE_ARCHIVE();
 public: // Simple default ctor/dtor
-  DEFAULT_CTOR_DTOR(Bignum_O);
+  //DEFAULT_CTOR_DTOR(Bignum_O);
 
 public: // ctor/dtor for classes with shared virtual base
-        //    explicit Bignum_O(core::Instance_sp const& mc) : T_O(mc), Integer(mc) {};
-        //    virtual ~Bignum_O() {};
+  Bignum_O()  {};
+  virtual ~Bignum_O() {};
 public:
   //	void initialize();
 
 private: // instance variables here
+  // =====
+  // Fast Bignum specification: (selwyn 6 apr 2020)
+  // The low-level GMP routines beginning mpn_ (n for natural number) are written with natural numbers (positive non-zero integers) in mind. Per the GMP
+  // manual, the interfaces are not necessarily consistent, and in particular, no method can be assumed to work with negative numbers, since there is no
+  //  explicit specification of them.
+
+  // We here define a negative number S to have minus the numberoflimbs of the positive integer |S| and the limbs of |S|, i.e. the magnitude. This choice
+  // is consistent with that of mpn_gcdext, for example, but care should be taken not to use the low level routines without first checking to see if they
+  // can be used with negative arguments. This choice is similar to the higher level GMP implementation
+
+  // https://gmplib.org/manual/Integer-Internals.html
+
+  // though we don't insist that 0 is represented by numberoflimbs=0.
+  // ====
+  
   mp_limb_t *limbs;
-  mp_size_t numberoflimbs;
+  mp_size_t numberoflimbs; 
 
 public: // Functions here
-  static Bignum_sp make(const string &value_in_string);
+  static Bignum_sp make(const string &value_in_string, unsigned int base=10);
 
-  static Bignum_sp create( gc::Fixnum i )
-  {
-    GC_ALLOCATE(Bignum_O, b);
-    b->set_to_fixnum(i);
-    return b;
-  };
+  static Bignum_sp create( gc::Fixnum i );
 
 #if !defined( CLASP_FIXNUM_IS_INT64 )
 
@@ -128,13 +139,26 @@ public: // Functions here
 
   Number_sp signum_() const;
 
+  virtual void debug_print() ;
+
   /*! Return true if the number fits in a signed int */
   bool fits_sint_p();
 
   void set_to_signed_long_int(signed long int i) {
     SIMPLE_ERROR(BF("implement set_to_signed_long_int"));} ;
   void set_to_fixnum(gc::Fixnum i) {
-    SIMPLE_ERROR(BF("implement set_to_fixnum"));} ;
+    this->numberoflimbs = ( i>0)? (sizeof(gc::Fixnum))/sizeof(mp_limb_t) :
+      -(sizeof(gc::Fixnum))/sizeof(mp_limb_t);
+    this->limbs = (mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+    if(i<0){
+      this->limbs[0]=(mp_limb_t)(-i);
+    }
+    else{
+      this->limbs[0]=(mp_limb_t)i;
+    } // probably need to fix this
+    std::cout << "fixnum i was " << i << "\n";
+    this->debug_print(); // looks like it works
+    } ;
   void set_to_unsigned_long_int(unsigned long int i) {
     SIMPLE_ERROR(BF("implement set_to_unsigned_long_int"));};
   
@@ -157,11 +181,13 @@ public: // Functions here
   Number_sp reciprocal_() const;
   Number_sp rational_() const final { return this->asSmartPtr(); };
   void increment(gc::Fixnum i) ;
-  int sign() const { return ((this->numberoflimbs) >=0) ? 1 : -1; }; // probably not correct
+  int sign() const {
+    if(this->zerop_())return 0;
+    return ((this->numberoflimbs) > 0) ? 1 : -1; }; 
 
-  virtual bool zerop_() const { return mpn_zero_p(this->limbs,this->numberoflimbs); } 
-  virtual bool plusp_() const { return ((this->numberoflimbs > 0)); }
-  virtual bool minusp_() const { return ((this->numberoflimbs < 0)); }
+  virtual bool zerop_() const { return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
+  virtual bool plusp_() const { return ((this->numberoflimbs > 0)) && !this->zerop_(); }
+  virtual bool minusp_() const { return ((this->numberoflimbs < 0)) && !this->zerop_(); }
 
   virtual Number_sp negate_() {SIMPLE_ERROR(BF("implement negate_ for bignums"));};
 
@@ -172,20 +198,22 @@ public: // Functions here
 
   virtual gc::Fixnum bit_length_() const;
 
-  /*! Return the value shifted by BITS bits.
-	  If BITS < 0 shift right, if BITS >0 shift left. */
-  Integer_sp shift_(gc::Fixnum bits) const;
 
   //	virtual	bool	eqn(T_sp obj) const;
   virtual bool eql_(T_sp obj) const;
 
  public:
+  
+  /*! Return the value shifted by BITS bits.
+	  If BITS < 0 shift right, if BITS >0 shift left. */
+  virtual Integer_sp shift_(gc::Fixnum bits) const ;
+  
   virtual string valueAsString() const {
     stringstream ss;
     ss << this->__repr__();
     return ss.str();
   };
-  virtual void setFromString(const string &strVal);
+  virtual void setFromString(const string &strValue, unsigned int base=10);
 
   // --- TRANSLATION METHODS ---
 

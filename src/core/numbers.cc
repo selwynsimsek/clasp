@@ -1366,8 +1366,9 @@ Integer_sp Integer_O::create( gctools::Fixnum v )
   {
     return make_fixnum(v);
   }
+  return Bignum_O::create(v);
   //Bignum z(GMP_LONG(v));return Bignum_O::create( z );
-  SIMPLE_ERROR(BF("implement create in the overflow case"));
+  //SIMPLE_ERROR(BF("implement create in the overflow case"));
 }
 
 
@@ -1486,6 +1487,16 @@ Integer_sp Integer_O::createLongFloat(LongFloat v) {
   SIMPLE_ERROR(BF("implement too large a long float in Integer_O::create"));
 }
 
+Integer_sp Integer_O::from_string( string str, unsigned int base) {
+  GC_ALLOCATE(Bignum_O,bn);
+  bn->setFromString(str, base);
+  if (// bn >= gc::most_negative_fixnum && bn <= gc::most_positive_fixnum
+      true
+      )
+    return clasp_make_fixnum(bn->as_long());
+  else return bn;
+}
+  
 }; // namespace core
 
 SYMBOL_EXPORT_SC_(ClPkg, logand);

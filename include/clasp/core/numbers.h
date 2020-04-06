@@ -196,6 +196,8 @@ namespace core {
       SUBCLASS_MUST_IMPLEMENT();
     };
     virtual bool equal(T_sp obj) const;
+    
+    virtual void debug_print() {};
 
     virtual Number_sp log1_() const { SUBIMP(); };
     virtual Number_sp log1p_() const;
@@ -333,6 +335,8 @@ namespace core {
     static Integer_sp create( double f );
     static Integer_sp createLongFloat( LongFloat f );
 
+    static Integer_sp from_string( string str, unsigned int base=10);
+
   public:
 
     virtual bool evenp_() const { SUBIMP(); };
@@ -342,7 +346,8 @@ namespace core {
 
     /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
-    virtual Integer_sp shift_(gc::Fixnum bits) const { SUBIMP(); };
+    virtual Integer_sp shift_(gc::Fixnum bits) const { std::cout << "in integer::shift_";
+        return this->asSmartPtr();;};
 
     virtual short as_short() const { SUBIMP(); };
     virtual unsigned short as_ushort() const { SUBIMP(); };
@@ -1032,7 +1037,7 @@ namespace core {
     return n->number_type_();
   }
 
-  inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits) {
+ inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits) {
     if (n.fixnump()) {
       if (bits < 0) {
         Fixnum y = n.unsafe_fixnum();
@@ -1043,10 +1048,11 @@ namespace core {
           y >>= bits;
         }
         return immediate_fixnum<Integer_O>(y);
-      } else {
-        SIMPLE_ERROR(BF("implement shift for bignums"));
       }
     }
+    //n->debug_print();
+    std::cout << "at end of clasp_shift: bits " << bits << "\n";
+    //return n;
     return n->shift_(bits);
   }
 

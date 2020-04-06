@@ -39,10 +39,28 @@ THE SOFTWARE.
 namespace core {
 
 CL_PKG_NAME(CorePkg,make-bignum);
-CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string) {
+CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string, unsigned int base) {
   GC_ALLOCATE(Bignum_O, bn);
-  bn->setFromString(value_in_string);
+  bn->setFromString(value_in_string,base);
   return ((bn));
+};
+
+__attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
+  GC_ALLOCATE(Bignum_O, b);
+  b->numberoflimbs = ( i>0)? (sizeof(gc::Fixnum))/sizeof(mp_limb_t) : -(mp_size_t)((sizeof(gc::Fixnum))/sizeof(mp_limb_t));
+  //std::cout << "b->numberoflimbs " << b->numberoflimbs << "\n";
+  b->limbs = (mp_limb_t*)GC_MALLOC(abs(b->numberoflimbs)*sizeof(mp_limb_t));
+  //b->debug_print();
+  if(i<0){
+    b->limbs[0]=(mp_limb_t)(-i);
+  }
+  else if (i>= 0){
+    b->limbs[0]=(mp_limb_t)i;
+  }// need to fix this to get types to deal with potential type mismatch
+  //std::cout << "malloc size:" << abs(b->numberoflimbs)*sizeof(mp_limb_t) << "\n";
+  //std::cout << "fixnum i was " << i << "\n";
+  //std::cout << "in create(fixnum)\n" ;
+  return ((b));
 };
 
 LongLongInt Bignum_O::as_LongLongInt_() const {
@@ -119,7 +137,9 @@ inline unsigned int Bignum_O::as_uint() const {
 // --  LONG --
 
 inline long Bignum_O::as_long() const {
-  SIMPLE_ERROR(BF("implement as_long"));
+  //SIMPLE_ERROR(BF("implement as_long"));
+  if(numberoflimbs>0)return (unsigned long)(this->limbs[0]);
+  else return -(unsigned long)this->limbs[0]; // will this work? it looks like we need little-endian
 }
 
 inline unsigned long Bignum_O::as_ulong() const {
@@ -228,15 +248,23 @@ LongFloat Bignum_O::as_long_float_() const {
 
 // --- END OF TRANSLATION METHODS ---
 
-void Bignum_O::setFromString(const string &value_in_string) {
-  this->numberoflimbs=(mp_size_t)ceil((log(10)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length()); // doesn't deal with negative numbers yet!
-  this->limbs=(mp_limb_t*)GC_MALLOC(this->numberoflimbs);
+ void Bignum_O::debug_print() {
+  std::cout << this->numberoflimbs << " limbs\n";
+  for(int i=0;i<numberoflimbs;i++){
+    std::cout << "Limb " << i << ": " << this->limbs[i] << "\n";
+  }
+}
+
+__attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_string, unsigned int base) {
+  this->numberoflimbs=(mp_size_t)ceil((log(base)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length()); // doesn't deal with negative numbers yet!
+  this->limbs=(mp_limb_t*)GC_MALLOC(this->numberoflimbs*sizeof(mp_limb_t));
   const char* c_string = value_in_string.c_str();
   unsigned char* c_out_string = (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
   for(int i=0;i<value_in_string.length();i++){
     c_out_string[i]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
   }  
-  this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),10);
+  this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),base);
+  //std::cout << "Bignum created from string: "+value_in_string + "\n";
   free(c_out_string);
 }
 
@@ -247,7 +275,8 @@ gc::Fixnum Bignum_O::bit_length_() const {
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
-  SIMPLE_ERROR(BF("implement shift"));
+  std::cout << "in bignum shift_()";
+  return this->asSmartPtr();
 }
 
 string Bignum_O::__repr__() const {
