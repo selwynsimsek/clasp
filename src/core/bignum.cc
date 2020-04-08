@@ -296,25 +296,40 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
     } else if(bits>0){ //left shift
       shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS)+1;
       shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      for(int i=0;i<shifted->numberoflimbs-1;i++){
-        shifted->limbs[i]=this->limbs[i+(bits/GMP_LIMB_BITS)];
-      }
       shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs, bits % GMP_LIMB_BITS);
       return shifted;
     }
     else{ //no shift
       shifted->numberoflimbs=this->numberoflimbs;
-      //use a proper copying routine here
       shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      for(int i=0;i<abs(shifted->numberoflimbs);i++){
-        shifted->limbs[i]=this->limbs[i];
-      }
+      mpn_copyi(shifted->limbs,this->limbs,shifted->numberoflimbs);
       return shifted;
-    }
-      
+    }   
   }
   else if(this->numberoflimbs<0){ // negative - per clhs ash we should be treating negative numbers as if they are in two's complement
-    SIMPLE_ERROR(BF("Not done negative shift yet"));
+    if(bits<0){// right shift
+      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+      shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS);
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      mpn_rshift(this->limbs+(bits/GMP_LIMB_BITS),shifted->limbs,abs(this->numberoflimbs),bits % GMP_LIMB_BITS); //subtract 1 as in two's complement
+      std::cout << "should decrement here";
+      shifted->decrement();
+      return shifted;
+    }
+    else if (bits>0){// left shift
+      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+      shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS)-1;
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      shifted->limbs[abs(shifted->numberoflimbs)-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs), bits % GMP_LIMB_BITS);
+      return shifted;
+    }
+    else{ // no shift
+      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+      shifted->numberoflimbs=this->numberoflimbs;
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      mpn_copyi(shifted->limbs,this->limbs,abs(shifted->numberoflimbs));
+      return shifted;
+    }
   }
   else // we are zero, shifting has no effect
     return immediate_fixnum<Number_O>(0);
