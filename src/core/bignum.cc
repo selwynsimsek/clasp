@@ -75,6 +75,8 @@ unsigned long long Bignum_O::as_unsigned_long_long_() const {
   //	TYPE_ERROR(this->asSmartPtr(),Cons_O::createList(cl::_sym_Integer_O,make_fixnum(0),Integer_O::create(gc::most_positive_unsigned_long_long)));
 }
 
+void test_bignum(Bignum_sp b){std::cout << "test bignum"; }
+
 void Bignum_O::sxhash_(HashGenerator &hg) const {
   hg.addValue(this->numberoflimbs);
   for(int i=0;i<abs(numberoflimbs);i++)
@@ -248,22 +250,30 @@ LongFloat Bignum_O::as_long_float_() const {
 
 // --- END OF TRANSLATION METHODS ---
 
- void Bignum_O::debug_print() {
+__attribute__((optnone)) void Bignum_O::debug_print() const {
   std::cout << this->numberoflimbs << " limbs\n";
-  for(int i=0;i<numberoflimbs;i++){
+  for(int i=0;i<abs(numberoflimbs);i++){
     std::cout << "Limb " << i << ": " << this->limbs[i] << "\n";
   }
 }
 
 __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_string, unsigned int base) {
-  this->numberoflimbs=(mp_size_t)ceil((log(base)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length()); // doesn't deal with negative numbers yet!
+  this->numberoflimbs=(mp_size_t)ceil((log(base)/(log(2)*GMP_LIMB_BITS)) * value_in_string.length());
   this->limbs=(mp_limb_t*)GC_MALLOC(this->numberoflimbs*sizeof(mp_limb_t));
   const char* c_string = value_in_string.c_str();
   unsigned char* c_out_string = (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
-  for(int i=0;i<value_in_string.length();i++){
-    c_out_string[i]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
-  }  
-  this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),base);
+  if(c_string[0]!='-'){
+    for(int i=0;i<value_in_string.length();i++){
+      c_out_string[i]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
+    }  
+    this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),base);
+  }
+  else{
+    for(int i=1;i<value_in_string.length();i++){
+      c_out_string[i-1]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
+    }  
+    this->numberoflimbs=-mpn_set_str(this->limbs,c_out_string,value_in_string.length()-1,base);
+  }
   //std::cout << "Bignum created from string: "+value_in_string + "\n";
   free(c_out_string);
 }
@@ -275,18 +285,51 @@ gc::Fixnum Bignum_O::bit_length_() const {
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
-  std::cout << "in bignum shift_()";
+ // std::cout << "Should be doing a bit shift now!";
+  if(this->numberoflimbs>0){ // positive
+    GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+    if(bits<0){ // right shift
+      shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      mpn_rshift(this->limbs+(bits/GMP_LIMB_BITS),shifted->limbs,this->numberoflimbs,bits % GMP_LIMB_BITS);
+      return shifted;
+    } else if(bits>0){ //left shift
+      shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS)+1;
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      for(int i=0;i<shifted->numberoflimbs-1;i++){
+        shifted->limbs[i]=this->limbs[i+(bits/GMP_LIMB_BITS)];
+      }
+      shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs, bits % GMP_LIMB_BITS);
+      return shifted;
+    }
+    else{ //no shift
+      shifted->numberoflimbs=this->numberoflimbs;
+      //use a proper copying routine here
+      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      for(int i=0;i<abs(shifted->numberoflimbs);i++){
+        shifted->limbs[i]=this->limbs[i];
+      }
+      return shifted;
+    }
+      
+  }
+  else if(this->numberoflimbs<0){ // negative - per clhs ash we should be treating negative numbers as if they are in two's complement
+    SIMPLE_ERROR(BF("Not done negative shift yet"));
+  }
+  else // we are zero, shifting has no effect
+    return immediate_fixnum<Number_O>(0);
   return this->asSmartPtr();
 }
 
 string Bignum_O::__repr__() const {
   stringstream ss;
-  unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs));
-  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,this->numberoflimbs); // base 8 for now for testing purposes
+  unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs)*GMP_LIMB_BITS* (int)ceil(log(2)/log(10)));
+  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs)); // base 8 for now for testing purposes
+  if(this->numberoflimbs<0)ss << "-";
   for(int i=0;i<stringlength;i++){
-    rawcstring[i]+='0';
+    ss << (rawcstring[i]+'0');
   }
-  ss << rawcstring;
+  //ss << rawcstring;
   free(rawcstring);
   return ((ss.str()));
 }

@@ -715,11 +715,9 @@ CL_DEFUN Integer_sp cl__ash(Integer_sp integer, Integer_sp count) {
   // clasp_to_int silently returns 0 for arguments being fixnums bigger than int
   // gctools::Fixnum would be a better type
   // see ecl cl_ash
-  std::cout << "in cl__ash\n";
   if (count.fixnump())
     return clasp_shift(integer, count.unsafe_fixnum());
     else {
-      std::cout << "in bignum cl__ash\n";
       // count is bignum
       if (clasp_plusp(count))
         if (clasp_zerop (integer))

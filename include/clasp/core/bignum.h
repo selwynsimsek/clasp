@@ -50,15 +50,12 @@ class Bignum_O : public Integer_O {
   LISP_CLASS(core, ClPkg, Bignum_O, "Bignum",Integer_O);
   //    DECLARE_ARCHIVE();
 public: // Simple default ctor/dtor
-  //DEFAULT_CTOR_DTOR(Bignum_O);
+  DEFAULT_CTOR_DTOR(Bignum_O);
 
 public: // ctor/dtor for classes with shared virtual base
-  Bignum_O()  {};
-  virtual ~Bignum_O() {};
-public:
   //	void initialize();
 
-private: // instance variables here
+public: // instance variables here
   // =====
   // Fast Bignum specification: (selwyn 6 apr 2020)
   // The low-level GMP routines beginning mpn_ (n for natural number) are written with natural numbers (positive non-zero integers) in mind. Per the GMP
@@ -67,11 +64,11 @@ private: // instance variables here
 
   // We here define a negative number S to have minus the numberoflimbs of the positive integer |S| and the limbs of |S|, i.e. the magnitude. This choice
   // is consistent with that of mpn_gcdext, for example, but care should be taken not to use the low level routines without first checking to see if they
-  // can be used with negative arguments. This choice is similar to the higher level GMP implementation
+  // can be used with negative arguments. This choice is similar to that made by the higher level GMP implementation
 
   // https://gmplib.org/manual/Integer-Internals.html
 
-  // though we don't insist that 0 is represented by numberoflimbs=0.
+  // though we don't insist as they do that 0 is represented by numberoflimbs=0.
   // ====
   
   mp_limb_t *limbs;
@@ -80,13 +77,13 @@ private: // instance variables here
 public: // Functions here
   static Bignum_sp make(const string &value_in_string, unsigned int base=10);
 
-  static Bignum_sp create( gc::Fixnum i );
+
 
 #if !defined( CLASP_FIXNUM_IS_INT64 )
 
   static Bignum_sp create( int64_t v )
   {
-    GC_ALLOCATE(Bignum_O, b);
+    GC_ALLOCATE_VARIADIC(Bignum_O, b);
     b->set_to_signed_long_int((signed long int) v);
     return b;
   };
@@ -95,7 +92,7 @@ public: // Functions here
 
   static Bignum_sp create( uint64_t v )
   {
-    GC_ALLOCATE(Bignum_O, b);
+    GC_ALLOCATE_VARIADIC(Bignum_O, b);
     b->set_to_unsigned_long_int((unsigned long int) v);
     return b;
   };
@@ -113,6 +110,8 @@ public: // Functions here
     SIMPLE_ERROR(BF("implement create (long long)"));
     return b;
   };
+
+  static Bignum_sp create(gc::Fixnum b);
 
 #endif
 
@@ -139,7 +138,7 @@ public: // Functions here
 
   Number_sp signum_() const;
 
-  virtual void debug_print() ;
+  virtual void debug_print() const;
 
   /*! Return true if the number fits in a signed int */
   bool fits_sint_p();
@@ -185,7 +184,8 @@ public: // Functions here
     if(this->zerop_())return 0;
     return ((this->numberoflimbs) > 0) ? 1 : -1; }; 
 
-  virtual bool zerop_() const { return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
+  virtual bool zerop_() const {
+    return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
   virtual bool plusp_() const { return ((this->numberoflimbs > 0)) && !this->zerop_(); }
   virtual bool minusp_() const { return ((this->numberoflimbs < 0)) && !this->zerop_(); }
 
@@ -299,6 +299,10 @@ namespace core {
   inline double _clasp_big_to_double(Bignum_sp a) {
     return a->as_double_();
   }
+
+inline Integer_sp fixnum_to_bignum(Fixnum fixnum){
+  return Bignum_O::create(fixnum);
+}
 
   void clasp_big_register_free(Bignum_sp x);
 

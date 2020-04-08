@@ -144,8 +144,17 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
     }
     return buffer;
   } else if (Bignum_sp bi = integer.asOrNull<Bignum_O>()) {
+    //std::cout << "in numbertostring";
     //core__bignum_to_string(buffer, bi->get(), base);
-    SIMPLE_ERROR(BF("do bignum in numberToString"));
+    if(bi->numberoflimbs<0)StringPushStringCharStar(buffer,"-");
+    unsigned char* string=(unsigned char*)malloc(1+mpn_sizeinbase(bi->limbs,abs(bi->numberoflimbs),(int)unbox_fixnum(base))); // add one as mpn_sizeinbase is sometimes one short
+    mp_size_t size = mpn_get_str(string,(int)unbox_fixnum(base),bi->limbs,abs(bi->numberoflimbs)); //change this as the source limbs are clobbered and will ruin the bignum - maybe a double memory copy?
+    bool zeroflag=1;
+    for(int i=0;i<size;i++){
+      if(string[i])zeroflag=false;
+      if(!zeroflag)buffer->vectorPushExtend(clasp_make_character(string[i]+'0'));
+    }
+    free(string);
   } 
   else {
     QERROR_WRONG_TYPE_NTH_ARG(2, base, cl::_sym_integer);

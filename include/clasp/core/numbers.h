@@ -151,6 +151,7 @@ namespace core
   bool clasp_float_infinity_p(Float_sp num);
   NumberType clasp_t_of(Number_sp num);
   Integer_sp clasp_shift(Integer_sp num, Fixnum bits);
+  Integer_sp fixnum_to_bignum(Fixnum fixnum);
   gc::Fixnum clasp_integer_length(Integer_sp x);
 
   Fixnum_sp clasp_make_fixnum(gc::Fixnum i);
@@ -1037,24 +1038,29 @@ namespace core {
     return n->number_type_();
   }
 
- inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits) {
-    if (n.fixnump()) {
-      if (bits < 0) {
-        Fixnum y = n.unsafe_fixnum();
-        bits = -bits;
-        if (bits >= gc::fixnum_bits) {
-          y = (y < 0) ? -1 : 0;
-        } else {
-          y >>= bits;
-        }
-        return immediate_fixnum<Integer_O>(y);
+__attribute__((optnone)) inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits) {
+  if (n.fixnump()) {
+    if (bits < 0) {
+      Fixnum y = n.unsafe_fixnum();
+      bits = -bits;
+      if (bits >= gc::fixnum_bits) {
+        y = (y < 0) ? -1 : 0;
+      } else {
+        y >>= bits;
       }
+      return immediate_fixnum<Integer_O>(y);
+    } else {
+      // Bignum val(static_cast<signed long>(n.unsafe_fixnum()));
+      // Bignum res;
+      // mpz_mul_2exp(res.get_mpz_t(), val.get_mpz_t(), bits);
+      // return Integer_O::create(res);
+      Fixnum y = n.unsafe_fixnum();
+      // turn to a bignum because it might overflow on a left shift
+      return fixnum_to_bignum(y)->shift_(bits);
     }
-    //n->debug_print();
-    std::cout << "at end of clasp_shift: bits " << bits << "\n";
-    //return n;
-    return n->shift_(bits);
   }
+  return n->shift_(bits);
+}
 
   inline gc::Fixnum clasp_integer_length(Integer_sp x) {
     if (x.fixnump()) {

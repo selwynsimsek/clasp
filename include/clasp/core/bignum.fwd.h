@@ -49,5 +49,8 @@ inline mpz_class clasp_create_mpz_class(unsigned long long int x) {
 #endif
 
 FORWARD(Bignum);
+
+
+void test_bignum(Bignum_sp b);
 };
 #endif
