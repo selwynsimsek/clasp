@@ -42,7 +42,7 @@ CL_PKG_NAME(CorePkg,make-bignum);
 CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string, unsigned int base) {
   GC_ALLOCATE(Bignum_O, bn);
   bn->setFromString(value_in_string,base);
-  return ((bn));
+  return bn->maybe_as_fixnum();
 };
 
 __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
@@ -51,12 +51,18 @@ __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
   //std::cout << "b->numberoflimbs " << b->numberoflimbs << "\n";
   b->limbs = (mp_limb_t*)GC_MALLOC(abs(b->numberoflimbs)*sizeof(mp_limb_t));
   //b->debug_print();
+  //fixnum is 62 bits
+  //2 limbs should always be enough..?
   if(i<0){
     b->limbs[0]=(mp_limb_t)(-i);
+    if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
   }
   else if (i>= 0){
     b->limbs[0]=(mp_limb_t)i;
+    if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
   }// need to fix this to get types to deal with potential type mismatch
+
+  
   //std::cout << "malloc size:" << abs(b->numberoflimbs)*sizeof(mp_limb_t) << "\n";
   //std::cout << "fixnum i was " << i << "\n";
   //std::cout << "in create(fixnum)\n" ;
@@ -65,6 +71,22 @@ __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
 
 LongLongInt Bignum_O::as_LongLongInt_() const {
   SIMPLE_ERROR(BF("Implement as_LongLongInt_ for %s") % this->__repr__());
+}
+
+Integer_sp Bignum_O::maybe_as_fixnum() {
+  //std::cout << "in maybe_as_fixnum \n";
+  if(this->numberoflimbs == 1){
+    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM ) //can check to see if less than 2^62 using an or
+      return immediate_fixnum<Integer_O>(this->limbs[0]);
+  }
+  else if (this->numberoflimbs == -1){
+    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1 )
+      return immediate_fixnum<Integer_O>(-((Fixnum)this->limbs[0])); //might not work
+  }
+  if(this->numberoflimbs == 0)return immediate_fixnum<Integer_O>(0);
+  //std::cout << "not a fixnum";
+  //this->debug_print();
+  return this->asSmartPtr();
 }
 
 unsigned long long Bignum_O::as_unsigned_long_long_() const {
@@ -289,14 +311,24 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
   if(this->numberoflimbs>0){ // positive
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
     if(bits<0){ // right shift
-      shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      mpn_rshift(this->limbs+(bits/GMP_LIMB_BITS),shifted->limbs,this->numberoflimbs,bits % GMP_LIMB_BITS);
+      shifted->realloc_limbs(this->numberoflimbs-(bits/GMP_LIMB_BITS));
+      //shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
+      //shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      if((-bits) % GMP_LIMB_BITS)
+        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) % GMP_LIMB_BITS);
+      else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),this->numberoflimbs);
       return shifted;
-    } else if(bits>0){ //left shift
+    } else if(bits>0)
+    { //left shift
       shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS)+1;
       shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs, bits % GMP_LIMB_BITS);
+      if( bits % GMP_LIMB_BITS)
+      shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,shifted->numberoflimbs, bits % GMP_LIMB_BITS);
+      else{
+        
+        mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs);
+        shifted->numberoflimbs--;
+      }
       return shifted;
     }
     else{ //no shift
@@ -309,10 +341,16 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
   else if(this->numberoflimbs<0){ // negative - per clhs ash we should be treating negative numbers as if they are in two's complement
     if(bits<0){// right shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS);
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      mpn_rshift(this->limbs+(bits/GMP_LIMB_BITS),shifted->limbs,abs(this->numberoflimbs),bits % GMP_LIMB_BITS); //subtract 1 as in two's complement
-      std::cout << "should decrement here";
+      shifted->realloc_limbs(-this->numberoflimbs-(bits/GMP_LIMB_BITS));
+      //shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
+      //shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      if((-bits) % GMP_LIMB_BITS)
+        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) % GMP_LIMB_BITS);
+      else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),-this->numberoflimbs);
+
+      shifted->numberoflimbs=-shifted->numberoflimbs;
+      
+      //std::cout << "should decrement here";
       shifted->decrement();
       return shifted;
     }
@@ -320,7 +358,12 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
       shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS)-1;
       shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      if(bits%GMP_LIMB_BITS)
       shifted->limbs[abs(shifted->numberoflimbs)-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs), bits % GMP_LIMB_BITS);
+      else {
+        mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
+        shifted->numberoflimbs++;
+      }
       return shifted;
     }
     else{ // no shift

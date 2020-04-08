@@ -5,6 +5,7 @@
 #include <clasp/core/array.h>
 #include <clasp/core/bits.h>
 #include <clasp/core/wrappers.h>
+#include <clasp/core/bignum.h>
 
 /* -*- mode: c; c-basic-offset: 8 -*- */
 /*
@@ -278,7 +279,7 @@ T_sp clasp_boole(int op, T_sp x, T_sp y) {
       Bignum_sp x_copy = my_thread->bigRegister0();
       x_copy->setFixnum(unbox_fixnum(fnx));
       (bignum_operations[op])(x_copy, x_copy, bny);
-      return _clasp_big_register_normalize(x_copy);
+      return x_copy;// what does that do? //_clasp_big_register_normalize(x_copy);
     } else {
       ERROR_WRONG_TYPE_NTH_ARG(cl::_sym_boole, 3, y, cl::_sym_integer);
     }

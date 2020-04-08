@@ -136,6 +136,8 @@ public: // Functions here
 
   string __repr__() const;
 
+  Integer_sp maybe_as_fixnum();
+
   Number_sp signum_() const;
 
   virtual void debug_print() const;
@@ -155,17 +157,24 @@ public: // Functions here
     else{
       this->limbs[0]=(mp_limb_t)i;
     } // probably need to fix this
-    std::cout << "fixnum i was " << i << "\n";
-    this->debug_print(); // looks like it works
+    //std::cout << "fixnum i was " << i << "\n";
+    //this->debug_print(); // looks like it works
     } ;
   void set_to_unsigned_long_int(unsigned long int i) {
     SIMPLE_ERROR(BF("implement set_to_unsigned_long_int"));};
   
 
   virtual void increment() {
-    SIMPLE_ERROR(BF("implement increment() for bignums"));};
+    Bignum_sp incf=this->onePlus_();
+    this->realloc_limbs(incf->numberoflimbs);
+    mpn_copyi(this->limbs,incf->limbs,abs(incf->numberoflimbs));
+  };
   virtual void decrement() {
-    SIMPLE_ERROR(BF("implement decrement() for bignums"));};
+    Bignum_sp decf=this->oneMinus_();
+    this->realloc_limbs(decf->numberoflimbs);
+    mpn_copyi(this->limbs,decf->limbs,abs(decf->numberoflimbs));
+    
+  };
   //virtual Number_sp copy() const;
   string description() const {
     stringstream ss;
@@ -174,7 +183,7 @@ public: // Functions here
   };
   void set(gc::Fixnum val) ;
   void setFixnum(gctools::Fixnum val) {
-    SIMPLE_ERROR(BF("implement setFixnum for bignums"));};
+    this->set_to_fixnum(val);};
   Number_sp abs_() const;
   Number_sp sqrt_() const;
   Number_sp reciprocal_() const;
@@ -182,19 +191,71 @@ public: // Functions here
   void increment(gc::Fixnum i) ;
   int sign() const {
     if(this->zerop_())return 0;
-    return ((this->numberoflimbs) > 0) ? 1 : -1; }; 
+    return ((this->numberoflimbs) > 0) ? 1 : -1; };
+
+  void realloc_limbs(int n){
+    this->numberoflimbs=n;
+    this->limbs=(mp_limb_t*)GC_MALLOC(abs(n)*sizeof(mp_limb_t));
+  }
 
   virtual bool zerop_() const {
     return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
   virtual bool plusp_() const { return ((this->numberoflimbs > 0)) && !this->zerop_(); }
   virtual bool minusp_() const { return ((this->numberoflimbs < 0)) && !this->zerop_(); }
 
-  virtual Number_sp negate_() {SIMPLE_ERROR(BF("implement negate_ for bignums"));};
+  virtual Number_sp negate_() const
+  {
+    GC_ALLOCATE_VARIADIC(Bignum_O,negated);
+    negated->realloc_limbs(-this->numberoflimbs);
+    mpn_copyi(negated->limbs,this->limbs,abs(this->numberoflimbs));
+    return negated;
+  };
+  
 
   virtual Number_sp oneMinus_() {
-    SIMPLE_ERROR(BF("implement oneMinus for bignums"));};
+    GC_ALLOCATE_VARIADIC(Bignum_O,decremented);
+    if(this->numberoflimbs>0){
+      decremented->realloc_limbs(this->numberoflimbs);
+      if(mpn_sub_1(decremented->limbs,this->limbs,this->numberoflimbs,1))//we had to borrow, so 
+        return immediate_fixnum<Number_O>(-1); //we must actually have -1.
+      else return decremented;
+    }
+    else if(this->numberoflimbs<0){
+      decremented->realloc_limbs(this->numberoflimbs);
+      if(mpn_add_1(decremented->limbs,this->limbs,-this->numberoflimbs,1)){
+        decremented->realloc_limbs(this->numberoflimbs-1);
+        mpn_zero(decremented->limbs,-decremented->numberoflimbs);
+        decremented->limbs[-decremented->numberoflimbs-1]=1;
+        return decremented;
+      }
+      else return decremented;
+    }
+    else return immediate_fixnum<Number_O>(-1);
+  };
   virtual Number_sp onePlus_() {
-    SIMPLE_ERROR(BF("implement onePlus for bignums"));};
+    GC_ALLOCATE_VARIADIC(Bignum_O,incremented);
+    if(this->numberoflimbs>0){ //positive
+      incremented->realloc_limbs(this->numberoflimbs);
+      if(mpn_add_1(incremented->limbs,this->limbs,this->numberoflimbs,1)){
+        //we overflowed, so need to reallocate. this way is slightly wasteful
+        incremented->realloc_limbs(this->numberoflimbs+1);
+        mpn_zero(incremented->limbs,incremented->numberoflimbs);
+        incremented->limbs[incremented->numberoflimbs-1]=1;
+        return incremented;
+      }
+      else return incremented;
+    }
+    else if(this->numberoflimbs<0){ //negative
+      //We probably won't have to reallocate
+      incremented->realloc_limbs(-this->numberoflimbs);
+      if(mpn_sub_1(incremented->limbs,this->limbs,abs(this->numberoflimbs),1)){
+        // we had to borrow, so we are actually zero and the result must be +1. very rare(?)
+        return immediate_fixnum<Number_O>(1);
+      }
+      else return incremented;
+    }
+    return immediate_fixnum<Number_O>(1);
+  };
 
   virtual gc::Fixnum bit_length_() const;
 
@@ -266,9 +327,11 @@ public: // Functions here
   void sxhash_(HashGenerator &hg) const;
 
   virtual bool evenp_() const {
-    SIMPLE_ERROR(BF("implement evenp for bignums"));};
+    return this->zerop_() || !(1 & this->limbs[0]);
+  };
   virtual bool oddp_() const {
-    SIMPLE_ERROR(BF("implement oddp for bignums"));};
+    return (this->numberoflimbs!=0) && ( 1 & this->limbs[0]);
+  };
 
   Number_sp log1() const;
 
@@ -282,7 +345,7 @@ namespace core {
 
   Integer_mv big_ceiling(Bignum_sp a, Bignum_sp b);
   Integer_mv big_floor(Bignum_sp a, Bignum_sp b);
-  Integer_sp _clasp_big_register_normalize(Bignum_sp x) ;
+  Integer_sp _clasp_big_register_normalize(Bignum_sp x);
 
   inline Integer_sp _clasp_big_floor(Bignum_sp a, Bignum_sp b, Real_sp *rP) {
     Integer_mv res_mv = big_floor(a, b);
