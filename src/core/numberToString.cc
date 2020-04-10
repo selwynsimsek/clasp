@@ -152,7 +152,7 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
     bool zeroflag=1;
     for(int i=0;i<size;i++){
       if(string[i])zeroflag=false;
-      if(!zeroflag)buffer->vectorPushExtend(clasp_make_character(string[i]+'0'));
+      if(!zeroflag)buffer->vectorPushExtend(clasp_make_character(string[i]+((int)unbox_fixnum(base)<=10?'0':'A')));
     }
     free(string);
   } 

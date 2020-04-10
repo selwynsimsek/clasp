@@ -375,6 +375,8 @@ inline Integer_sp fixnum_to_bignum(Fixnum fixnum){
 
   Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y);
 
+int _clasp_compare_big(Bignum_sp a,Bignum_sp b);
+
 //#define CLASP_BIGNUM_SIZE(x) ((x)->_mp_size)
 //#define CLASP_BIGNUM_ABS_SIZE(x) \
 //  (CLASP_BIGNUM_SIZE(x) < 0 ? -CLASP_BIGNUM_SIZE(x) : CLASP_BIGNUM_SIZE(x))

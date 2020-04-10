@@ -47,26 +47,26 @@ CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string, unsigned int ba
 
 __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
   GC_ALLOCATE(Bignum_O, b);
-  b->numberoflimbs = ( i>0)? (sizeof(gc::Fixnum))/sizeof(mp_limb_t) : -(mp_size_t)((sizeof(gc::Fixnum))/sizeof(mp_limb_t));
+  if(i){
+    b->numberoflimbs = ( i>0)? (sizeof(gc::Fixnum))/sizeof(mp_limb_t) : -(mp_size_t)((sizeof(gc::Fixnum))/sizeof(mp_limb_t));
   //std::cout << "b->numberoflimbs " << b->numberoflimbs << "\n";
-  b->limbs = (mp_limb_t*)GC_MALLOC(abs(b->numberoflimbs)*sizeof(mp_limb_t));
+    b->limbs = (mp_limb_t*)GC_MALLOC(abs(b->numberoflimbs)*sizeof(mp_limb_t));
   //b->debug_print();
   //fixnum is 62 bits
-  //2 limbs should always be enough..?
-  if(i<0){
-    b->limbs[0]=(mp_limb_t)(-i);
-    if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
+  // what if GMP limbs are smaller than 62 bits?
+    if(i<0){
+      b->limbs[0]=(mp_limb_t)(-i); 
+      //if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
+    }
+    else if (i>= 0){
+      b->limbs[0]=(mp_limb_t)i;
+      //if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
+    }// need to fix this to get types to deal with potential type mismatch
+    
+    return ((b));
   }
-  else if (i>= 0){
-    b->limbs[0]=(mp_limb_t)i;
-    if(b->numberoflimbs>1)b->limbs[1]=(mp_limb_t)((-i)>>GMP_LIMB_BITS);
-  }// need to fix this to get types to deal with potential type mismatch
-
-  
-  //std::cout << "malloc size:" << abs(b->numberoflimbs)*sizeof(mp_limb_t) << "\n";
-  //std::cout << "fixnum i was " << i << "\n";
-  //std::cout << "in create(fixnum)\n" ;
-  return ((b));
+  b->numberoflimbs=0;
+  return b;
 };
 
 LongLongInt Bignum_O::as_LongLongInt_() const {
@@ -79,11 +79,12 @@ Integer_sp Bignum_O::maybe_as_fixnum() {
     if(this->limbs[0] <= MOST_POSITIVE_FIXNUM ) //can check to see if less than 2^62 using an or
       return immediate_fixnum<Integer_O>(this->limbs[0]);
   }
-  else if (this->numberoflimbs == -1){
+  if (this->numberoflimbs == -1){
     if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1 )
-      return immediate_fixnum<Integer_O>(-((Fixnum)this->limbs[0])); //might not work
+      return immediate_fixnum<Integer_O>(-((Fixnum)this->limbs[0]));
   }
-  if(this->numberoflimbs == 0)return immediate_fixnum<Integer_O>(0);
+  if(this->numberoflimbs == 0)
+    return immediate_fixnum<Integer_O>(0);
   //std::cout << "not a fixnum";
   //this->debug_print();
   return this->asSmartPtr();
@@ -133,7 +134,7 @@ CL_DEFMETHOD string Bignum_O::as_uint64_string() const {
 CL_LISPIFY_NAME("core:fitsSintP");
 CL_DEFMETHOD bool Bignum_O::fits_sint_p() {
   int maxlimbs = ((sizeof(signed int) *8) /GMP_LIMB_BITS);
-  return (this->numberoflimbs<maxlimbs) && (this->numberoflimbs>-maxlimbs);
+  return (this->numberoflimbs<maxlimbs) && (this->numberoflimbs>-maxlimbs); //may need to improve this
 }
 
 // --- TRANSLATION METHODS ---
@@ -162,8 +163,8 @@ inline unsigned int Bignum_O::as_uint() const {
 
 inline long Bignum_O::as_long() const {
   //SIMPLE_ERROR(BF("implement as_long"));
-  if(numberoflimbs>0)return (unsigned long)(this->limbs[0]);
-  else return -(unsigned long)this->limbs[0]; // will this work? it looks like we need little-endian
+  if(numberoflimbs>0)return (long)(this->limbs[0]);
+  else return -(long)this->limbs[0]; // will this work? it looks like we need little-endian
 }
 
 inline unsigned long Bignum_O::as_ulong() const {
@@ -301,39 +302,35 @@ __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_str
 }
 
 gc::Fixnum Bignum_O::bit_length_() const {
-  SIMPLE_ERROR(BF("implement bit_length"));
+  SIMPLE_ERROR(BF("implement bit_length")); //this could be tricky
 }
 
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
- // std::cout << "Should be doing a bit shift now!";
   if(this->numberoflimbs>0){ // positive
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
     if(bits<0){ // right shift
       shifted->realloc_limbs(this->numberoflimbs-(bits/GMP_LIMB_BITS));
-      //shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
-      //shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      if((-bits) % GMP_LIMB_BITS)
-        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) % GMP_LIMB_BITS);
+      //if((-bits) % GMP_LIMB_BITS)
+      if((-bits) & (GMP_LIMB_BITS-1))
+        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) & ( GMP_LIMB_BITS -1));
       else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),this->numberoflimbs);
-      return shifted;
+      return shifted->maybe_as_fixnum();
     } else if(bits>0)
     { //left shift
-      shifted->numberoflimbs=this->numberoflimbs+(bits/GMP_LIMB_BITS)+1;
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      if( bits % GMP_LIMB_BITS)
-      shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,shifted->numberoflimbs, bits % GMP_LIMB_BITS);
+      shifted->realloc_limbs(this->numberoflimbs+(bits/GMP_LIMB_BITS)+1);
+      //if( bits % GMP_LIMB_BITS)
+      if(bits & (GMP_LIMB_BITS-1))
+        shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,shifted->numberoflimbs, bits & ( GMP_LIMB_BITS -1 ));
       else{
-        
         mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs);
         shifted->numberoflimbs--;
       }
       return shifted;
     }
     else{ //no shift
-      shifted->numberoflimbs=this->numberoflimbs;
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      shifted->realloc_limbs(this->numberoflimbs);
       mpn_copyi(shifted->limbs,this->limbs,shifted->numberoflimbs);
       return shifted;
     }   
@@ -342,24 +339,18 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
     if(bits<0){// right shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
       shifted->realloc_limbs(-this->numberoflimbs-(bits/GMP_LIMB_BITS));
-      //shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS);
-      //shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      if((-bits) % GMP_LIMB_BITS)
+      if((-bits) & (GMP_LIMB_BITS -1))
         mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) % GMP_LIMB_BITS);
       else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),-this->numberoflimbs);
-
       shifted->numberoflimbs=-shifted->numberoflimbs;
-      
-      //std::cout << "should decrement here";
       shifted->decrement();
-      return shifted;
+      return shifted->maybe_as_fixnum();
     }
     else if (bits>0){// left shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->numberoflimbs=this->numberoflimbs-(bits/GMP_LIMB_BITS)-1;
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      if(bits%GMP_LIMB_BITS)
-      shifted->limbs[abs(shifted->numberoflimbs)-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs), bits % GMP_LIMB_BITS);
+      shifted->realloc_limbs(this->numberoflimbs-(bits/GMP_LIMB_BITS)-1);
+      if(bits & (GMP_LIMB_BITS-1))
+        shifted->limbs[abs(shifted->numberoflimbs)-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs), bits & (GMP_LIMB_BITS-1));
       else {
         mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
         shifted->numberoflimbs++;
@@ -368,8 +359,7 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
     }
     else{ // no shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->numberoflimbs=this->numberoflimbs;
-      shifted->limbs=(mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      shifted->realloc_limbs(this->numberoflimbs);
       mpn_copyi(shifted->limbs,this->limbs,abs(shifted->numberoflimbs));
       return shifted;
     }
@@ -382,12 +372,11 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
 string Bignum_O::__repr__() const {
   stringstream ss;
   unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs)*GMP_LIMB_BITS* (int)ceil(log(2)/log(10)));
-  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs)); // base 8 for now for testing purposes
+  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs));
   if(this->numberoflimbs<0)ss << "-";
   for(int i=0;i<stringlength;i++){
     ss << (rawcstring[i]+'0');
   }
-  //ss << rawcstring;
   free(rawcstring);
   return ((ss.str()));
 }
@@ -402,7 +391,10 @@ Number_sp Bignum_O::signum_() const {
 }
 
 Number_sp Bignum_O::abs_() const {
-  SIMPLE_ERROR(BF("implement abs_"));
+  GC_ALLOCATE_VARIADIC(Bignum_O,absolute);
+  absolute->realloc_limbs(abs(this->numberoflimbs));
+  mpn_copyi(absolute->limbs,this->limbs,absolute->numberoflimbs);
+  return absolute; // normalise here?
 }
 
 bool Bignum_O::eql_(T_sp o) const {
@@ -421,6 +413,50 @@ Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y) {
   SIMPLE_ERROR(BF("implement clasp_big_gcd"));
 }
 
+int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, negative if a>b, 0 otherwise
+  if(a->numberoflimbs>0){ //a>=0
+    if(b->numberoflimbs>0){// a>=0,b>=0
+      bool result=false;
+      mp_limb_t* temp;
+      if(a->numberoflimbs<b->numberoflimbs){
+        temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
+        mpn_copyi(temp,a->limbs,a->numberoflimbs); //Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
+        result= (mpn_cmp(temp,b->limbs,b->numberoflimbs)); //Is this sign right?
+      }
+      else{
+        temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
+        mpn_copyi(temp,b->limbs,b->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
+        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));//Is this sign right?
+      }
+      free(temp);
+      return result;
+    }
+    else{//a>=0,b<=0
+      return (a->zerop_() && b->zerop_())?0:-1;
+    }
+  }
+  else{//a<=0
+    if(b->numberoflimbs>0){//a<=0,b>=0 
+      return (a->zerop_() && b->zerop_())?0:1;
+    }
+    else{//a<=0,b<=0
+      bool result=false;
+      mp_limb_t* temp;
+      if(a->numberoflimbs<b->numberoflimbs){      
+        temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
+        mpn_copyi(temp,a->limbs,a->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
+        result=(mpn_cmp(temp,b->limbs,b->numberoflimbs));//Is this sign right?
+      }
+      else{
+        temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
+        mpn_copyi(temp,b->limbs,b->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
+        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));//Is this sign right?
+      }
+      free(temp);
+      return result;
+    }
+  }
+}
 
 void clasp_big_register_free(Bignum_sp b) {
   // ECL just returns but we

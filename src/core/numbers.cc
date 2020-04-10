@@ -251,8 +251,7 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
   case_Fixnum_v_Fixnum :
     return two_arg__PLUS_FF(na.unsafe_fixnum(),nb.unsafe_fixnum());
   case_Fixnum_v_Bignum :
-    SIMPLE_ERROR(BF("do fixnum v bignum +"));
-    //return two_arg__PLUS_FB(na.unsafe_fixnum(), gctools::reinterpret_cast_smart_ptr<Bignum_O>(nb));
+    //two_arg__PLUS_FB(na.unsafe_fixnum(), gctools::reinterpret_cast_smart_ptr<Bignum_O>(nb));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
       //mpz_class za(clasp_to_mpz(na));
@@ -370,17 +369,34 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       Fixnum fc = fa - fb;
       if (fc >= gc::most_negative_fixnum && fc <= gc::most_positive_fixnum) {
         return make_fixnum(fc);
-      }
-    // Overflow case
-      //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
-     // mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
-     // mpz_class zc = za - zb;return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("implement overflow case"));
+      }// If we have fixnum overflow, then the result will still actually fit in the fixnum
+      // i.e. |fa-fb| <= |fa| + |fb| <= 2^62 + 2^62 <= 2^63 so fits in 64 bits
+      else return Bignum_O::create(fc);
     }
   case_Fixnum_v_Bignum : {
       //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
       //mpz_class zc = za - gc::As<Bignum_sp>(nb)->ref(); return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
+      Fixnum fa = unbox_fixnum(gc::As<Fixnum_sp>(na));
+      Bignum_sp bb = gc::As<Bignum_sp>(nb);
+      if(fa==0)return bb->negate_();
+      GC_ALLOCATE_VARIADIC(Bignum_O,result);
+      if(bb->numberoflimbs>0){ //b positive
+        result->realloc_limbs(bb->numberoflimbs+1);
+        if(fa>0){ // a positive
+          
+        }
+        else { //a negative
+          result->limbs[abs(bb->numberoflimbs)]=
+            mpn_add_1(result->limbs,bb->limbs,abs(bb->numberoflimbs),-fa);
+        }
+        return result;
+      }
+      else if(bb->numberoflimbs<0){ //b negative
+        result->realloc_limbs(bb->numberoflimbs-1);
+        return result;
+        }
+      else return Bignum_O::create(fa);
+      return result;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -403,7 +419,10 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
     }
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() - gc::As<Bignum_sp>(nb)->ref());
-      SIMPLE_ERROR(BF("implement case_Bignum__v_Bignum"));
+      //SIMPLE_ERROR(BF("implement case_Bignum__v_Bignum"));
+      // a -b
+      
+      
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -916,7 +935,10 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //  return -1;
       //if (za == zb)
       //  return 0;return 1;
-      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
+      int cmp_result=_clasp_compare_big(gc::As<Bignum_sp>(na),Bignum_O::create(nb.unsafe_fixnum())); //need to convert to a bignum in order to compare
+      if(cmp_result>0)return -1;
+      else if(cmp_result==0)return 0;
+      /*else if(cmp_result<0)*/return 1;
     }
   case_Bignum_v_Bignum : {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
@@ -926,7 +948,10 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //if (za == zb)
       //  return 0;
       //if (za > zb)   return 1;
-      SIMPLE_ERROR(BF("implement case_Bignum_v_Bignum"));
+      int cmp_result=_clasp_compare_big(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
+      if(cmp_result>0)return -1;
+      else if(cmp_result==0)return 0;
+      /*else if(cmp_result<0)*/return 1;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -1122,7 +1147,12 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
   case_Fixnum_v_Bignum : {
       //mpz_class za = clasp_to_mpz(gc::As<Fixnum_sp>(na));
       //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return za == zb;
-      SIMPLE_ERROR(BF("case_Fixnum_v_Bignum"));
+      //SIMPLE_ERROR(BF("case_Fixnum_v_Bignum"));
+      T_sp temp;
+      if((temp=gc::As<Bignum_sp>(nb)->maybe_as_fixnum()).fixnump()){ //could be equal
+        return temp.unsafe_fixnum()==na.unsafe_fixnum();
+      }
+      else return false;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -1146,7 +1176,11 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum : {
       //mpz_class &za(gc::As<Bignum_sp>(na)->ref());
       //mpz_class zb = GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb)));return za == zb;
-      SIMPLE_ERROR(BF("case_Bignum_v_Fixnum"));
+      T_sp temp;
+      if((temp=gc::As<Bignum_sp>(na)->maybe_as_fixnum()).fixnump()){ //could be equal
+        return temp.unsafe_fixnum()==nb.unsafe_fixnum();
+      }
+      else return false;
     }
   case_Bignum_v_Bignum : {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
