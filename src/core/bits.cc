@@ -436,8 +436,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     if(second.fixnump())second_big_internal=Bignum_O::create(second.unsafe_fixnum());
     else second_big_internal = gc::As<Bignum_sp>(second);
     GC_ALLOCATE_VARIADIC(Bignum_O,ret_val); // allocate the result
-    ret_val->numberoflimbs=std::max(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs));
-    ret_val->limbs=(mp_limb_t*)GC_MALLOC(abs(ret_val->numberoflimbs)*sizeof(mp_limb_t));
+    ret_val->realloc_limbs(std::max(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs)));
     switch (operation) {
     case boole_and:
         //mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
@@ -460,7 +459,8 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
         //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
         
         if(first_big_internal->plusp_() && second_big_internal->plusp_()){
-          mpn_and_n(ret_val->limbs,second_big_internal->limbs,first_big_internal->limbs,ret_val->numberoflimbs);
+          mpn_and_n(ret_val->limbs,second_big_internal->limbs,first_big_internal->limbs,
+                    std::min(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs)));
           return ret_val;
         }
         SIMPLE_ERROR(BF("Unknown operation in cl__andc1_operation_rest"));
@@ -469,7 +469,8 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_andc2:
         //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
        if(!first_big_internal->minusp_() && !second_big_internal->minusp_()){
-            mpn_and_n(ret_val->limbs,first_big_internal->limbs,second_big_internal->limbs,abs(ret_val->numberoflimbs));
+            //mpn_and_n(ret_val->limbs,first_big_internal->limbs,second_big_internal->limbs,abs(ret_val->numberoflimbs));
+         std::cout << "should have done a proper andc2 here";
           return ret_val;
         }
         first_big_internal->debug_print();
@@ -576,7 +577,9 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
     else icur_big= gc::As<Bignum_sp>(icur);
     switch (operation) {
      case boole_and:
-         mpn_and_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,acc_bignum->numberoflimbs); // this is broken
+         if(acc_bignum->numberoflimbs!=0)
+           //mpn_and_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
+           std::cout << "should have done a proper and here\n";
          break;
      case boole_xor:
          //mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
@@ -584,7 +587,8 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
          break;
      case boole_ior:
          //mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-         mpn_ior_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,acc_bignum->numberoflimbs); // this is broken
+         //if(acc_bignum->numberoflimbs!=0)mpn_ior_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
+         std::cout << "should have done a proper ior here \n";
          break;
     // case boole_eqv:
     //     mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
