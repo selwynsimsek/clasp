@@ -75,16 +75,19 @@ LongLongInt Bignum_O::as_LongLongInt_() const {
 
 Integer_sp Bignum_O::maybe_as_fixnum() {
   //std::cout << "in maybe_as_fixnum \n";
-  if(this->numberoflimbs == 1){
-    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM ) //can check to see if less than 2^62 using an or
+  if(this->numberoflimbs >= 1){
+    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM
+       && (this->numberoflimbs==1 || mpn_zero_p(this->limbs+1,this->numberoflimbs-1))) //can check to see if less than 2^62 using an or
       return immediate_fixnum<Integer_O>(this->limbs[0]);
   }
-  if (this->numberoflimbs == -1){
-    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1 )
+  if (this->numberoflimbs <= -1){
+    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1
+       && (this->numberoflimbs==-1 || mpn_zero_p(this->limbs+1,-this->numberoflimbs-1)))
       return immediate_fixnum<Integer_O>(-((Fixnum)this->limbs[0]));
   }
   if(this->numberoflimbs == 0)
     return immediate_fixnum<Integer_O>(0);
+  
   //std::cout << "not a fixnum";
   //this->debug_print();
   return this->asSmartPtr();
@@ -287,13 +290,13 @@ __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_str
   unsigned char* c_out_string = (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
   if(c_string[0]!='-'){
     for(int i=0;i<value_in_string.length();i++){
-      c_out_string[i]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
+      c_out_string[i]=(unsigned char)(c_string[i]-((i<=10)?'0':'A')); // string not in ASCII. put a bounds check here?
     }  
     this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),base);
   }
   else{
     for(int i=1;i<value_in_string.length();i++){
-      c_out_string[i-1]=(unsigned char)(c_string[i]-'0'); // string not in ASCII. put a bounds check here?
+      c_out_string[i-1]=(unsigned char)(c_string[i]-((i<=10)?'0':'A')); // string not in ASCII. put a bounds check here?
     }  
     this->numberoflimbs=-mpn_set_str(this->limbs,c_out_string,value_in_string.length()-1,base);
   }
@@ -304,7 +307,16 @@ __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_str
 gc::Fixnum Bignum_O::bit_length_() const {
   SIMPLE_ERROR(BF("implement bit_length")); //this could be tricky
 }
-
+//better way to do this?
+#if (GMP_LIMB_BITS==64)
+#define BIGNUM_LIMB_SHIFT 6
+#endif
+#if (GMP_LIMB_BITS==32)
+#define BIGNUM_LIMB_SHIFT 5
+#endif
+#if (GMP_LIMB_BITS==16)
+#define BIGNUM_LIMB_SHIFT 4
+#endif 
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
@@ -420,43 +432,44 @@ int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, neg
       mp_limb_t* temp;
       if(a->numberoflimbs<b->numberoflimbs){
         temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,a->limbs,a->numberoflimbs); //Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
-        result= (mpn_cmp(temp,b->limbs,b->numberoflimbs)); //Is this sign right?
+        mpn_copyi(temp,a->limbs,a->numberoflimbs); //temp=a
+        result= (mpn_cmp(b->limbs,temp,b->numberoflimbs)); 
       }
       else{
         temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,b->limbs,b->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
-        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));//Is this sign right?
+        mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=b
+        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));
       }
       free(temp);
       return result;
     }
     else{//a>=0,b<=0
-      return (a->zerop_() && b->zerop_())?0:-1;
+      return (a->zerop_() && b->zerop_())?0:-1; //a>b unless a=b=0
     }
   }
   else{//a<=0
     if(b->numberoflimbs>0){//a<=0,b>=0 
-      return (a->zerop_() && b->zerop_())?0:1;
+      return (a->zerop_() && b->zerop_())?0:1; //a<b unless a=b=0
     }
     else{//a<=0,b<=0
       bool result=false;
       mp_limb_t* temp;
-      if(a->numberoflimbs<b->numberoflimbs){      
+      if(a->numberoflimbs<b->numberoflimbs){
         temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,a->limbs,a->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
-        result=(mpn_cmp(temp,b->limbs,b->numberoflimbs));//Is this sign right?
+        mpn_copyi(temp,a->limbs,a->numberoflimbs);//temp=|a|
+        result=(mpn_cmp(temp,b->limbs,b->numberoflimbs)); // a<b <==> |a|>|b|
       }
       else{
         temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,b->limbs,b->numberoflimbs);//Need to copy to temp because both bignums must have the same number of limbs in order to compare with the low level routine
-        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));//Is this sign right?
+        mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=|b|
+        result=(mpn_cmp(a->limbs,temp,a->numberoflimbs)); // a<b <==> |a|<|b|
       }
       free(temp);
       return result;
     }
   }
 }
+
 
 void clasp_big_register_free(Bignum_sp b) {
   // ECL just returns but we

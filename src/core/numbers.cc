@@ -233,8 +233,8 @@ CL_DEFUN
   //mpz_class zc = za + zb;
   //return Integer_O::create(zc);
   
-  SIMPLE_ERROR(BF("implement two_arg__PLUS_FF in the overflow case"));
-  return make_fixnum(fa);
+  // The result will still actually fit in a bignum even if there is overflow
+  return Bignum_O::create(fc);
 }
 
 //CL_NAME("TWO-ARG-+-FIXNUM-BIGNUM");
@@ -503,6 +503,7 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
   MATH_DISPATCH_END();
 }
 
+
 CL_NAME("TWO-ARG-*");
 CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
   MATH_DISPATCH_BEGIN(na, nb) {
@@ -520,12 +521,39 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
      // mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
       //mpz_class zc = za * zb;return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("case_Fixnum_v_Fixnum"));
+      Bignum_sp big_a=Bignum_O::create(nb.unsafe_fixnum());
+      Bignum_sp big_b=Bignum_O::create(na.unsafe_fixnum());
+      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
+      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs
+                                     + sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
+      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
+        Bignum_sp temp = big_a;
+        big_a=big_b;
+        big_b=temp;
+      }
+      mpn_mul(multiply_result->limbs,
+              big_a->limbs,abs(big_a->numberoflimbs),
+              big_b->limbs,abs(big_b->numberoflimbs));
+      return multiply_result;
     }
   case_Fixnum_v_Bignum : {
       //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
       //mpz_class zc = za * gc::As<Bignum_sp>(nb)->ref();return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("case_Fixnum_v_Bignum"));
+      
+      Bignum_sp big_a=gc::As<Bignum_sp>(nb);
+      Bignum_sp big_b=Bignum_O::create(na.unsafe_fixnum());
+      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
+      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs +
+                                     sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
+      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
+        Bignum_sp temp = big_a;
+        big_a=big_b;
+        big_b=temp;
+      }
+      mpn_mul(multiply_result->limbs,
+              big_a->limbs,abs(big_a->numberoflimbs),
+              big_b->limbs,abs(big_b->numberoflimbs));
+      return multiply_result;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -543,10 +571,34 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum : {
       //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
       //mpz_class zc = gc::As<Bignum_sp>(na)->ref() * zb;return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("case_Bignum_v_Fixnum"));
+      Bignum_sp big_a=gc::As<Bignum_sp>(na);
+      Bignum_sp big_b=Bignum_O::create(nb.unsafe_fixnum());
+      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
+      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs + sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
+      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
+        Bignum_sp temp = big_a;
+        big_a=big_b;
+        big_b=temp;
+      }
+      mpn_mul(multiply_result->limbs,
+              big_a->limbs,abs(big_a->numberoflimbs),
+              big_b->limbs,abs(big_b->numberoflimbs));
+      return multiply_result;
     }
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() * gc::As<Bignum_sp>(nb)->ref());
-      SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
+      Bignum_sp big_a=gc::As<Bignum_sp>(na);
+      Bignum_sp big_b=gc::As<Bignum_sp>(nb);
+      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
+      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs + sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
+      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
+        Bignum_sp temp = big_a;
+        big_a=big_b;
+        big_b=temp;
+      }
+      mpn_mul(multiply_result->limbs,
+              big_a->limbs,abs(big_a->numberoflimbs),
+              big_b->limbs,abs(big_b->numberoflimbs));
+      return multiply_result;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -649,7 +701,7 @@ CL_DEFUN Number_sp contagen_div(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum:
   case_Fixnum_v_Bignum:
   case_Bignum_v_Bignum://  return Rational_O::create(clasp_to_mpz(na), clasp_to_mpz(nb));
-    SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
+    return Rational_O::create(na,nb);
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio:
     return Rational_O::create(gc::As<Integer_sp>(contagen_mul(na, gc::As<Ratio_sp>(nb)->denominator())),
@@ -893,7 +945,12 @@ int basic_compare(Number_sp na, Number_sp nb) {
        // return -1;
       //if (za == zb)
        // return 0;   //return 1;
-      SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
+      //SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
+      // convert everything to a bignum at first
+      int result=_clasp_compare_big(gc::As<Bignum_sp>(nb),Bignum_O::create(na.unsafe_fixnum()));
+      if(result>0)return 1; //_clasp_compare_big has the opposite sign convention
+      if(result==0)return 0;
+      return -1;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -1185,7 +1242,8 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
   case_Bignum_v_Bignum : {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
       //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return (za == zb);
-      SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
+      //SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
+      return _clasp_compare_big(gc::As_unsafe<Bignum_sp>(na),gc::As_unsafe<Bignum_sp>(nb))==0;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -1377,8 +1435,19 @@ bool Number_O::equal(T_sp obj) const {
 }
 
 Rational_sp Rational_O::create(Integer_sp num, Integer_sp denom) {
-  SIMPLE_ERROR(BF("Rational_O::create not implemented yet"));
-  //return Rational_O::create(clasp_to_mpz(num), clasp_to_mpz(denom));
+  Bignum_sp big_numerator=Bignum_O::as_bignum(num);
+  Bignum_sp big_denominator=Bignum_O::as_bignum(denom);
+  ASSERT(!big_denominator->zerop_());
+  if (big_denominator->zerop_())
+    ERROR_DIVISION_BY_ZERO(num,denom);
+  if(_clasp_compare_big(big_denominator,Bignum_O::create((Fixnum)1))){ //denominator=/=1
+    SIMPLE_ERROR(BF("Check for bignum division"));
+  }
+  else{ // denominator=1
+    return big_numerator->maybe_as_fixnum();
+  }
+
+  return Ratio_O::create(big_numerator, big_denominator);
 }
 
 CL_DOCSTRING("Return a number that is NAN");
@@ -1974,7 +2043,8 @@ Number_sp Bignum_O::sqrt_() const {
 }
 
 Number_sp Bignum_O::reciprocal_() const {//  return Rational_O::create(clasp_to_mpz(clasp_make_fixnum(1)), this->_value);
-  SIMPLE_ERROR(BF("implement reciprocal for Bignum"));
+  return Rational_O::create(immediate_fixnum<Number_O>(1),this->copy_());
+  //SIMPLE_ERROR(BF("implement reciprocal for Bignum"));
 }
 
 CL_LAMBDA(arg);
@@ -2944,9 +3014,12 @@ Fixnum clasp_to_fixnum( core::T_sp x )
   ASSERT(!x.single_floatp());
   if ( x.fixnump() ) {
     return x.unsafe_fixnum();
-  } else if (gc::IsA<Bignum_sp>(x)) 
-    SIMPLE_ERROR(BF("implement clasp_to_fixnum for bignums"));
-    //Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
+  } else if (gc::IsA<Bignum_sp>(x)){
+    //gc::As_unsafe<Bignum_sp>(x)
+    Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
+    Bignum_sp pointer;
+    if((pointer=bx->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
+  }
    // LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
    //   return static_cast<size_t>(bx->mpz_ref().get_si());
    // }
@@ -2963,7 +3036,8 @@ Fixnum clasp_to_fixnum( core::Integer_sp x )
     //Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     //LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
     //  return static_cast<size_t>(bx->mpz_ref().get_si());
-    SIMPLE_ERROR(BF("implement clasp_to_fixnum(Integer_sp)"));
+    Bignum_sp pointer;
+    if((pointer=gc::As_unsafe<Bignum_sp>(x)->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
     
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O, make_fixnum(gc::most_negative_fixnum), make_fixnum(gc::most_positive_fixnum)));

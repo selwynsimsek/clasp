@@ -97,6 +97,15 @@ public: // Functions here
     return b;
   };
 
+  static Bignum_sp as_bignum(Integer_sp integer){
+    if(integer.fixnump()){
+      GC_ALLOCATE(Bignum_O,result);
+      result->set_to_fixnum(integer.unsafe_fixnum());
+      return result;
+    }
+    else return gc::As_unsafe<Bignum_sp>(integer);
+  };
+
 #if !defined( CLASP_LONG_LONG_IS_INT64 )
 
   static Bignum_sp create( long long v )
@@ -195,8 +204,15 @@ public: // Functions here
 
   void realloc_limbs(int n){
     this->numberoflimbs=n;
-    this->limbs=(mp_limb_t*)GC_MALLOC(abs(n)*sizeof(mp_limb_t));
+    this->limbs=(mp_limb_t*)GC_MALLOC((1+abs(n))*sizeof(mp_limb_t)); // We allocate one more limb in order not to copy again when adding or subtracting.
   }
+  Number_sp copy_() const
+  {
+    GC_ALLOCATE_VARIADIC(Bignum_O,copy);
+    copy->realloc_limbs(this->numberoflimbs);
+    mpn_copyi(copy->limbs,this->limbs,abs(this->numberoflimbs));
+    return copy;
+  };
 
   virtual bool zerop_() const {
     return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
@@ -327,7 +343,7 @@ public: // Functions here
   void sxhash_(HashGenerator &hg) const;
 
   virtual bool evenp_() const {
-    return this->zerop_() || !(1 & this->limbs[0]);
+    return this->numberoflimbs==0 || !(1 & this->limbs[0]);
   };
   virtual bool oddp_() const {
     return (this->numberoflimbs!=0) && ( 1 & this->limbs[0]);

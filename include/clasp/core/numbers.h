@@ -347,8 +347,7 @@ namespace core {
 
     /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
-    virtual Integer_sp shift_(gc::Fixnum bits) const { std::cout << "in integer::shift_";
-        return this->asSmartPtr();;};
+    virtual Integer_sp shift_(gc::Fixnum bits) const { SUBIMP();};
 
     virtual short as_short() const { SUBIMP(); };
     virtual unsigned short as_ushort() const { SUBIMP(); };
@@ -1220,6 +1219,11 @@ __attribute__((optnone)) inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits
     // test for isinf not for isnan, good old friend copy paste
     return num->isinf_();
   }
+inline int sgn(int a){
+  if(a<0)return -1;
+  if(a==0)return 0;
+  return 1;
+}
 
 #if 0
   CL_LISPIFY_NAME(general-two-arg-_PLUS_);
