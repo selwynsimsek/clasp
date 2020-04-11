@@ -78,15 +78,15 @@ Integer_sp Bignum_O::maybe_as_fixnum() {
   if(this->numberoflimbs >= 1){
     if(this->limbs[0] <= MOST_POSITIVE_FIXNUM
        && (this->numberoflimbs==1 || mpn_zero_p(this->limbs+1,this->numberoflimbs-1))) //can check to see if less than 2^62 using an or
-      return immediate_fixnum<Integer_O>(this->limbs[0]);
+      return make_fixnum(this->limbs[0]);
   }
   if (this->numberoflimbs <= -1){
     if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1
        && (this->numberoflimbs==-1 || mpn_zero_p(this->limbs+1,-this->numberoflimbs-1)))
-      return immediate_fixnum<Integer_O>(-((Fixnum)this->limbs[0]));
+      return make_fixnum(-((Fixnum)this->limbs[0]));
   }
   if(this->numberoflimbs == 0)
-    return immediate_fixnum<Integer_O>(0);
+    return make_fixnum(0);
   
   //std::cout << "not a fixnum";
   //this->debug_print();
