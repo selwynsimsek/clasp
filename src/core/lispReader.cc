@@ -835,15 +835,15 @@ T_sp interpret_token_or_throw_reader_error(T_sp sin, Token &token, bool only_dot
         if (num[num.size() - 1] == '.') {
           //mpz_class z10(num.substr(0, num.size() - 1), 10);
           //return Integer_O::create(z10);
-          //std::cout << "trying to read " << num << "in if\n";
+          std::cout << "trying to read " << num << "in if\n";
           return Bignum_O::make(num.substr(0,num.size() - 1),10); //use read base?
-          SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num.substr(0, num.size() - 1)));
+          //SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num.substr(0, num.size() - 1)));
         } else {
           //mpz_class zbase(num.c_str(), read_base);
           //return Integer_O::create(zbase);
-          //std::cout << "trying to read " << num << "in else\n";
+          std::cout << "trying to read " << num << "in else\n";
           return Bignum_O::make(num,read_base);
-          SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num));
+          //SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num));
         }
       } catch (std::invalid_argument &arg) {
         SIMPLE_ERROR(BF("Problem in mpz_class creation with %s error: %s") % num % arg.what());

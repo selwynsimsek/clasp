@@ -68,7 +68,10 @@ public: // instance variables here
 
   // https://gmplib.org/manual/Integer-Internals.html
 
-  // though we don't insist as they do that 0 is represented by numberoflimbs=0.
+  // If numberoflimbs=/=0, limbs[|numberoflimbs|-1] may not be 0, and 0 is represented by having numberoflimbs=0.
+  // This ensures uniqueness of representation. All returned bignums and bignums passed as arguments must satisfy this.
+  // maybe_as_fixnum() should be called on bignums being returned as results of computations.
+  // c.f. ecl:src/c/big.d for comparison.
   // ====
   
   mp_limb_t *limbs;
@@ -165,12 +168,23 @@ public: // Functions here
     }
     else{
       this->limbs[0]=(mp_limb_t)i;
-    } // probably need to fix this
-    //std::cout << "fixnum i was " << i << "\n";
-    //this->debug_print(); // looks like it works
+    } // need to fix this
     } ;
+  inline Bignum_sp normalize(){ // Ensure that |numberoflimbs| is not too large.
+    if(this->numberoflimbs>0){
+      while(this->limbs[numberoflimbs-1]==0 && this->numberoflimbs>0)
+        numberoflimbs--;
+    }
+    else if(this->numberoflimbs<0){
+      while(this->limbs[-numberoflimbs-1]==0 && this->numberoflimbs<0)
+        numberoflimbs++;
+    }
+    return this->asSmartPtr();
+  };
   void set_to_unsigned_long_int(unsigned long int i) {
-    SIMPLE_ERROR(BF("implement set_to_unsigned_long_int"));};
+    this->realloc_limbs(1);
+    this->limbs[0]=i;
+  };
   
 
   virtual void increment() {
@@ -182,7 +196,6 @@ public: // Functions here
     Bignum_sp decf=this->oneMinus_();
     this->realloc_limbs(decf->numberoflimbs);
     mpn_copyi(this->limbs,decf->limbs,abs(decf->numberoflimbs));
-    
   };
   //virtual Number_sp copy() const;
   string description() const {
@@ -199,7 +212,7 @@ public: // Functions here
   Number_sp rational_() const final { return this->asSmartPtr(); };
   void increment(gc::Fixnum i) ;
   int sign() const {
-    if(this->zerop_())return 0;
+    if(this->numberoflimbs==0)return 0;
     return ((this->numberoflimbs) > 0) ? 1 : -1; };
 
   void realloc_limbs(int n){
@@ -211,13 +224,13 @@ public: // Functions here
     GC_ALLOCATE_VARIADIC(Bignum_O,copy);
     copy->realloc_limbs(this->numberoflimbs);
     mpn_copyi(copy->limbs,this->limbs,abs(this->numberoflimbs));
-    return copy;
+    return copy->normalize();
   };
 
   virtual bool zerop_() const {
-    return (this->numberoflimbs==0) || mpn_zero_p(this->limbs,abs(this->numberoflimbs)); } 
-  virtual bool plusp_() const { return ((this->numberoflimbs > 0)) && !this->zerop_(); }
-  virtual bool minusp_() const { return ((this->numberoflimbs < 0)) && !this->zerop_(); }
+    return (this->numberoflimbs==0); } 
+  virtual bool plusp_() const { return this->numberoflimbs>0; }
+  virtual bool minusp_() const { return this->numberoflimbs<0; }
 
   virtual Number_sp negate_() const
   {
@@ -233,8 +246,8 @@ public: // Functions here
     if(this->numberoflimbs>0){
       decremented->realloc_limbs(this->numberoflimbs);
       if(mpn_sub_1(decremented->limbs,this->limbs,this->numberoflimbs,1))//we had to borrow, so 
-        return immediate_fixnum<Number_O>(-1); //we must actually have -1.
-      else return decremented;
+        return Bignum_O::create((Fixnum) -1); //we must actually have -1.
+      else return decremented->normalize();
     }
     else if(this->numberoflimbs<0){
       decremented->realloc_limbs(this->numberoflimbs);
@@ -244,9 +257,9 @@ public: // Functions here
         decremented->limbs[-decremented->numberoflimbs-1]=1;
         return decremented;
       }
-      else return decremented;
+      else return decremented->normalize();
     }
-    else return immediate_fixnum<Number_O>(-1);
+    else return Bignum_O::create((Fixnum) -1);
   };
   virtual Number_sp onePlus_() {
     GC_ALLOCATE_VARIADIC(Bignum_O,incremented);
@@ -259,18 +272,18 @@ public: // Functions here
         incremented->limbs[incremented->numberoflimbs-1]=1;
         return incremented;
       }
-      else return incremented;
+      else return incremented->normalize();
     }
     else if(this->numberoflimbs<0){ //negative
       //We probably won't have to reallocate
       incremented->realloc_limbs(-this->numberoflimbs);
       if(mpn_sub_1(incremented->limbs,this->limbs,abs(this->numberoflimbs),1)){
         // we had to borrow, so we are actually zero and the result must be +1. very rare(?)
-        return immediate_fixnum<Number_O>(1);
+        return Bignum_O::create((Fixnum) 1);
       }
-      else return incremented;
+      else return incremented->normalize();
     }
-    return immediate_fixnum<Number_O>(1);
+    return Bignum_O::create((Fixnum) 1);
   };
 
   virtual gc::Fixnum bit_length_() const;
@@ -391,7 +404,184 @@ inline Integer_sp fixnum_to_bignum(Fixnum fixnum){
 
   Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y);
 
-int _clasp_compare_big(Bignum_sp a,Bignum_sp b);
+inline Integer_sp _clasp_big_divided_by_big(Bignum_sp n,Bignum_sp d){
+  n->normalize();
+  d->normalize();
+  GC_ALLOCATE(Bignum_O,result);
+  result->realloc_limbs(abs(n->numberoflimbs)-abs(d->numberoflimbs)+1); // check quotient rounding
+  GC_ALLOCATE(Bignum_O,remainder);
+  remainder->realloc_limbs(abs(d->numberoflimbs));
+  mpn_tdiv_qr(result->limbs,remainder->limbs,0,n->limbs,abs(n->numberoflimbs),d->limbs,abs(d->numberoflimbs));
+  if((n->numberoflimbs * d->numberoflimbs) < 0)result->numberoflimbs*=-1;
+  return result->normalize();
+}
+
+inline int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, negative if a>b, 0 otherwise
+  if(a->numberoflimbs<b->numberoflimbs)return -1;
+  if(a->numberoflimbs>b->numberoflimbs)return 1;
+  if(a->numberoflimbs==0)return 0; //they are both zero
+  // have to do a comparison between two non-zero bignums of the same limb length
+  int cmp_result=mpn_cmp(a->limbs,b->limbs,abs(a->numberoflimbs));
+  return (a->numberoflimbs>0)?-cmp_result:cmp_result;
+};
+
+inline Bignum_sp _clasp_big_and_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| & |b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_and_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_ior_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| | |b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_ior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_xor_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| ^ |b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_xor_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_andn_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| & ~|b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_andn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_iorn_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| | ~|b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_iorn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_nand_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp ~(|a| & |b|).
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_nand_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_nior_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp ~(|a| | |b|).
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_nior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Bignum_sp _clasp_big_xnor_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp ~(|a| ^ |b|).
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(a->numberoflimbs); 
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_xnor_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  return result;
+}
+
+inline Number_sp _clasp_maybe_as_fixnum(Bignum_sp num){
+  if(num.fixnump())return immediate_fixnum<Number_sp>(num.unsafe_fixnum());
+  return num;
+}
+
+inline Bignum_sp _clasp_big_add_magnitude(Bignum_sp a,Bignum_sp b){
+  //Returns a Bignum_sp |a| + |b|.
+  GC_ALLOCATE(Bignum_O,result);
+  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  result->realloc_limbs(abs(a->numberoflimbs)+1);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_add(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
+  return result->normalize();
+}
+
+inline Bignum_sp _clasp_big_difference_magnitude(Bignum_sp a, Bignum_sp b){
+  //Returns a Bignum_sp | |b| - |a||
+  a=a->abs_();
+  b=b->abs_();
+  if(_clasp_compare_big(a,b)>0){
+    Bignum_sp temp=a;
+    a=b;
+    b=temp;
+  }
+  GC_ALLOCATE(Bignum_O,result);
+  result->realloc_limbs(abs(a->numberoflimbs)+1);
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_sub(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
+  return result->normalize();
+}
+
+
+
 
 //#define CLASP_BIGNUM_SIZE(x) ((x)->_mp_size)
 //#define CLASP_BIGNUM_ABS_SIZE(x) \
@@ -399,7 +589,6 @@ int _clasp_compare_big(Bignum_sp a,Bignum_sp b);
 
   /*! Parse a cstring to a Bignum */
    //Bignum CStrToBignum(const char* c);
-
- };
+};
 
 #endif /* _bignum_H_ */

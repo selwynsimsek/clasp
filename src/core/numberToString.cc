@@ -148,11 +148,14 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
     //core__bignum_to_string(buffer, bi->get(), base);
     if(bi->numberoflimbs<0)StringPushStringCharStar(buffer,"-");
     unsigned char* string=(unsigned char*)malloc(1+mpn_sizeinbase(bi->limbs,abs(bi->numberoflimbs),(int)unbox_fixnum(base))); // add one as mpn_sizeinbase is sometimes one short
-    mp_size_t size = mpn_get_str(string,(int)unbox_fixnum(base),bi->limbs,abs(bi->numberoflimbs)); //change this as the source limbs are clobbered and will ruin the bignum - maybe a double memory copy?
+    mp_limb_t* copy = (mp_limb_t*)malloc(abs(bi->numberoflimbs)*sizeof(mp_limb_t));
+    mpn_copyi(copy,bi->limbs,abs(bi->numberoflimbs));
+    mp_size_t size = mpn_get_str(string,(int)unbox_fixnum(base),copy,abs(bi->numberoflimbs)); //change this as the source limbs are clobbered and will ruin the bignum - maybe a double memory copy?
+    free(copy);
     bool zeroflag=1;
     for(int i=0;i<size;i++){
       if(string[i])zeroflag=false;
-      if(!zeroflag)buffer->vectorPushExtend(clasp_make_character(string[i]+((int)unbox_fixnum(base)<=10?'0':'A')));
+      if(!zeroflag)buffer->vectorPushExtend(clasp_make_character(string[i]+(string[i]<=10?'0':'A')));
     }
     free(string);
   } 

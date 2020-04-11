@@ -42,7 +42,7 @@ CL_PKG_NAME(CorePkg,make-bignum);
 CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string, unsigned int base) {
   GC_ALLOCATE(Bignum_O, bn);
   bn->setFromString(value_in_string,base);
-  return bn->maybe_as_fixnum();
+  return bn->normalize()->maybe_as_fixnum();
 };
 
 __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
@@ -260,8 +260,20 @@ inline ssize_t Bignum_O::as_ssize_t() const {
 // --- ---
 
 float Bignum_O::as_float_() const {
-  
-  SIMPLE_ERROR(BF("implement as_float_"));
+  // Using Horner's method.. maybe there is a better way
+  //std::cout << "Using horner's method to cast to float - maybe not good\n";
+  if(this->numberoflimbs==0)return 1.0f;
+  float acc = 0.0f;//this->numberoflimbs<0? -1.0f : 1.0f;
+  for(int i=abs(this->numberoflimbs)-1;i>=0;i--){
+    acc*=powf(2.0f,GMP_LIMB_BITS);
+    acc+=((float)this->limbs[i]);
+    //acc*=powf(2.0f,GMP_LIMB_BITS);
+  }
+  acc*=this->numberoflimbs<0?-1.0f:1.0f;
+  //std::cout << this->__repr__();
+  //std::cout << "float was " << acc << "\n...\n";
+  return acc;
+  //SIMPLE_ERROR(BF("implement as_float_"));
 }
 
 double Bignum_O::as_double_() const {
@@ -277,10 +289,11 @@ LongFloat Bignum_O::as_long_float_() const {
 // --- END OF TRANSLATION METHODS ---
 
 __attribute__((optnone)) void Bignum_O::debug_print() const {
-  std::cout << this->numberoflimbs << " limbs\n";
+  std::cout << "---\nBignum " << this->__repr__() << "\n" << this->numberoflimbs << " limbs\n";
   for(int i=0;i<abs(numberoflimbs);i++){
     std::cout << "Limb " << i << ": " << this->limbs[i] << "\n";
   }
+  std::cout << "---\n";
 }
 
 __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_string, unsigned int base) {
@@ -328,7 +341,7 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
       if((-bits) & (GMP_LIMB_BITS-1))
         mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) & ( GMP_LIMB_BITS -1));
       else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),this->numberoflimbs);
-      return shifted->maybe_as_fixnum();
+      return shifted->normalize()->maybe_as_fixnum();
     } else if(bits>0)
     { //left shift
       shifted->realloc_limbs(this->numberoflimbs+(bits/GMP_LIMB_BITS)+1);
@@ -339,12 +352,12 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
         mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs);
         shifted->numberoflimbs--;
       }
-      return shifted;
+      return shifted->normalize();
     }
     else{ //no shift
       shifted->realloc_limbs(this->numberoflimbs);
       mpn_copyi(shifted->limbs,this->limbs,shifted->numberoflimbs);
-      return shifted;
+      return shifted->normalize();
     }   
   }
   else if(this->numberoflimbs<0){ // negative - per clhs ash we should be treating negative numbers as if they are in two's complement
@@ -356,7 +369,7 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
       else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),-this->numberoflimbs);
       shifted->numberoflimbs=-shifted->numberoflimbs;
       shifted->decrement();
-      return shifted->maybe_as_fixnum();
+      return shifted->normalize()->maybe_as_fixnum();
     }
     else if (bits>0){// left shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
@@ -367,27 +380,28 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
         mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
         shifted->numberoflimbs++;
       }
-      return shifted;
+      return shifted->normalize();
     }
     else{ // no shift
       GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
       shifted->realloc_limbs(this->numberoflimbs);
       mpn_copyi(shifted->limbs,this->limbs,abs(shifted->numberoflimbs));
-      return shifted;
+      return shifted->normalize();
     }
   }
   else // we are zero, shifting has no effect
-    return immediate_fixnum<Number_O>(0);
+    return Bignum_O::create((Fixnum)0);
   return this->asSmartPtr();
 }
 
 string Bignum_O::__repr__() const {
+  
   stringstream ss;
   unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs)*GMP_LIMB_BITS* (int)ceil(log(2)/log(10)));
   mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs));
   if(this->numberoflimbs<0)ss << "-";
   for(int i=0;i<stringlength;i++){
-    ss << (rawcstring[i]+'0');
+    ss << (char)(rawcstring[i]+'0');
   }
   free(rawcstring);
   return ((ss.str()));
@@ -410,7 +424,15 @@ Number_sp Bignum_O::abs_() const {
 }
 
 bool Bignum_O::eql_(T_sp o) const {
-  SIMPLE_ERROR(BF("implement eql_"));
+  if(o.fixnump()){
+    if(this->numberoflimbs==1)return this->limbs[0]==(mp_limb_t)o.unsafe_fixnum();
+    if(this->numberoflimbs==-1)return this->limbs[0]==(mp_limb_t)(-o.unsafe_fixnum());
+    if(this->numberoflimbs==0)return o.unsafe_fixnum()==0;
+    return false;
+  }
+  if(Bignum_sp ny = o.asOrNull<Number_O>())
+    return 0==_clasp_compare_big(this->asSmartPtr(),ny);
+  else return false;
 }
 
 Integer_mv big_ceiling(Bignum_sp a, Bignum_sp b) {
@@ -421,54 +443,78 @@ Integer_mv big_floor(Bignum_sp a, Bignum_sp b) {
   SIMPLE_ERROR(BF("implement big_floor"));
 }
 
-Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y) {
-  SIMPLE_ERROR(BF("implement clasp_big_gcd"));
+__attribute__((optnone)) Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y) {
+  while(x->evenp_() && y->evenp_()){ // per mpn_gcd need to ensure that both x and y are not even.
+    if(x->zerop_())return y->copy_();
+    if(y->zerop_())return x->copy_();
+    Integer_sp newx=x->shift_(-1);
+    Integer_sp newy=y->shift_(-1);
+    x=(newx.fixnump())?Bignum_O::create(newx.unsafe_fixnum()):gc::As<Bignum_sp>(newx);
+    y=(newy.fixnump())?Bignum_O::create(newy.unsafe_fixnum()):gc::As<Bignum_sp>(newy);
+    
+  }
+  if(abs(x->numberoflimbs) < abs(y->numberoflimbs)){
+    Bignum_sp temp=x;
+    x=y;
+    y=temp;
+  }
+  mp_limb_t* copy_x=(mp_limb_t*)malloc(sizeof(mp_limb_t)*abs(x->numberoflimbs));
+  mp_limb_t* copy_y=(mp_limb_t*)malloc(sizeof(mp_limb_t)*abs(x->numberoflimbs));
+  mpn_copyi(copy_x,x->limbs,abs(x->numberoflimbs));
+  mpn_copyi(copy_y,y->limbs,abs(y->numberoflimbs));
+  GC_ALLOCATE(Bignum_O,result);
+  result->realloc_limbs(y->numberoflimbs);
+  result->numberoflimbs=
+    mpn_gcd(result->limbs,copy_x,abs(x->numberoflimbs),copy_y,abs(y->numberoflimbs));
+  free(copy_x);
+  free(copy_y);
+  return result->normalize();
 }
 
-int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, negative if a>b, 0 otherwise
-  if(a->numberoflimbs>0){ //a>=0
-    if(b->numberoflimbs>0){// a>=0,b>=0
-      bool result=false;
-      mp_limb_t* temp;
-      if(a->numberoflimbs<b->numberoflimbs){
-        temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,a->limbs,a->numberoflimbs); //temp=a
-        result= (mpn_cmp(b->limbs,temp,b->numberoflimbs)); 
-      }
-      else{
-        temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=b
-        result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));
-      }
-      free(temp);
-      return result;
-    }
-    else{//a>=0,b<=0
-      return (a->zerop_() && b->zerop_())?0:-1; //a>b unless a=b=0
-    }
-  }
-  else{//a<=0
-    if(b->numberoflimbs>0){//a<=0,b>=0 
-      return (a->zerop_() && b->zerop_())?0:1; //a<b unless a=b=0
-    }
-    else{//a<=0,b<=0
-      bool result=false;
-      mp_limb_t* temp;
-      if(a->numberoflimbs<b->numberoflimbs){
-        temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,a->limbs,a->numberoflimbs);//temp=|a|
-        result=(mpn_cmp(temp,b->limbs,b->numberoflimbs)); // a<b <==> |a|>|b|
-      }
-      else{
-        temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
-        mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=|b|
-        result=(mpn_cmp(a->limbs,temp,a->numberoflimbs)); // a<b <==> |a|<|b|
-      }
-      free(temp);
-      return result;
-    }
-  }
-}
+// int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, negative if a>b, 0 otherwise
+//   if(a->numberoflimbs>0){ //a>=0
+//     if(b->numberoflimbs>0){// a>=0,b>=0
+//       bool result=false;
+//       mp_limb_t* temp;
+//       if(a->numberoflimbs<b->numberoflimbs){
+//         temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
+//         mpn_copyi(temp,a->limbs,a->numberoflimbs); //temp=a
+//         result= (mpn_cmp(b->limbs,temp,b->numberoflimbs)); 
+//       }
+//       else{
+//         temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
+//         mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=b
+//         result=(mpn_cmp(temp,a->limbs,a->numberoflimbs));
+//       }
+//       free(temp);
+//       return result;
+//     }
+//     else{//a>=0,b<=0
+//       return (a->zerop_() && b->zerop_())?0:-1; //a>b unless a=b=0
+//     }
+//   }
+//   else{//a<=0
+//     if(b->numberoflimbs>0){//a<=0,b>=0 
+//       return (a->zerop_() && b->zerop_())?0:1; //a<b unless a=b=0
+//     }
+//     else{//a<=0,b<=0
+//       bool result=false;
+//       mp_limb_t* temp;
+//       if(a->numberoflimbs<b->numberoflimbs){
+//         temp=(mp_limb_t*)malloc(b->numberoflimbs*sizeof(mp_limb_t));
+//         mpn_copyi(temp,a->limbs,a->numberoflimbs);//temp=|a|
+//         result=(mpn_cmp(temp,b->limbs,b->numberoflimbs)); // a<b <==> |a|>|b|
+//       }
+//       else{
+//         temp=(mp_limb_t*)malloc(a->numberoflimbs*sizeof(mp_limb_t));
+//         mpn_copyi(temp,b->limbs,b->numberoflimbs);//temp=|b|
+//         result=(mpn_cmp(a->limbs,temp,a->numberoflimbs)); // a<b <==> |a|<|b|
+//       }
+//       free(temp);
+//       return result;
+//     }
+//   }
+// }
 
 
 void clasp_big_register_free(Bignum_sp b) {

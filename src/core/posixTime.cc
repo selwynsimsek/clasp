@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <clasp/core/symbolTable.h>
 #include <clasp/core/multipleValues.h>
 #include <clasp/core/lisp.h>
+#include <clasp/core/bignum.h>
 #
 // last include is wrappers.h
 #include <clasp/core/wrappers.h>
@@ -56,8 +57,13 @@ CL_DOCSTRING("getInternalRealTime");
 CL_DEFUN T_sp cl__get_internal_real_time() {
   PosixTime_sp now = PosixTime_O::createNow();
   PosixTimeDuration_sp diff = now->sub(gc::As<PosixTime_sp>(_sym_STARstartRunTimeSTAR->symbolValue()));
-  //return Integer_O::create(diff->totalMilliseconds() * (CLASP_INTERNAL_TIME_UNITS_PER_SECOND / 1000 ));
-  SIMPLE_ERROR(BF("implement get_internal_real_time with new bignums"));
+  mpz_class mpz_class=(diff->totalMilliseconds() * (CLASP_INTERNAL_TIME_UNITS_PER_SECOND / 1000 ));
+  //mpz_t mpz=mpz_class.get_mpz_t();
+  GC_ALLOCATE(Bignum_O,result);
+  result->realloc_limbs(mpz_size(mpz_class.get_mpz_t()));
+  mpn_copyi(result->limbs,mpz_limbs_read(mpz_class.get_mpz_t()),abs((long)mpz_size(mpz_class.get_mpz_t())));
+  //SIMPLE_ERROR(BF("implement get_internal_real_time with new bignums"));
+  return result;
 };
 
 /* Return the time in nanoseconds form the system defined starting time */
@@ -94,10 +100,15 @@ CL_LAMBDA();
 CL_DECLARE();
 CL_DOCSTRING("clock_gettime_nanoseconds");
 CL_DEFUN core::Integer_sp core__clock_gettime_nanoseconds() {
-  //Bignum ns = systemTimeNs();
+  Bignum mpz_class = systemTimeNs();
+  GC_ALLOCATE(Bignum_O,result);
+  result->realloc_limbs(mpz_size(mpz_class.get_mpz_t()));
+  mpn_copyi(result->limbs,mpz_limbs_read(mpz_class.get_mpz_t()),abs((long)mpz_size(mpz_class.get_mpz_t())));
+  //SIMPLE_ERROR(BF("implement get_internal_real_time with new bignums"));
+  return result;
   //core::Integer_sp bn = core::Integer_O::create(ns);
   //return bn;
-  SIMPLE_ERROR(BF("implement clock-gettime-nanoseconds for new bignums"));
+  //SIMPLE_ERROR(BF("implement clock-gettime-nanoseconds for new bignums"));
 };
   
 CL_LAMBDA();
@@ -207,18 +218,18 @@ CL_DEFMETHOD mpz_class PosixTimeDuration_O::totalSeconds() {
 CL_LISPIFY_NAME("totalMilliseconds");
 CL_DEFMETHOD mpz_class PosixTimeDuration_O::totalMilliseconds() {
   _OF();
-  //stringstream ss;
-  //ss << this->_Duration.total_milliseconds();
-  //return mpz_class(ss.str());
-  SIMPLE_ERROR(BF("implement PosixTimeDuration_O:totalMilliseconds for bignums"));
+  stringstream ss;
+  ss << this->_Duration.total_milliseconds();
+  return mpz_class(ss.str());
+  //SIMPLE_ERROR(BF("implement PosixTimeDuration_O:totalMilliseconds for bignums"));
 }
 
 mpz_class PosixTimeDuration_O::totalMicroseconds() {
   _OF();
-  //stringstream ss;
-  //ss << this->_Duration.total_microseconds();
-  //return mpz_class(ss.str());
-  SIMPLE_ERROR(BF("implement PosixTimeDuration_O:totalMilliseconds for bignums"));
+  stringstream ss;
+  ss << this->_Duration.total_microseconds();
+  return mpz_class(ss.str());
+  //SIMPLE_ERROR(BF("implement PosixTimeDuration_O:totalMilliseconds for bignums"));
 }
 
 mpz_class PosixTimeDuration_O::fractionalSeconds() {

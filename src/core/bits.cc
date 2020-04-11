@@ -429,80 +429,182 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     return clasp_make_fixnum(result);
   }
   else {
-    Bignum_sp first_big_internal; // need to convert everything to a bignum
-    Bignum_sp second_big_internal; // a potentially faster way to do it would be to treat a fixnum as one limb
-    if(first.fixnump())first_big_internal=Bignum_O::create(first.unsafe_fixnum());
-    else first_big_internal = gc::As<Bignum_sp>(first);
-    if(second.fixnump())second_big_internal=Bignum_O::create(second.unsafe_fixnum());
-    else second_big_internal = gc::As<Bignum_sp>(second);
-    GC_ALLOCATE_VARIADIC(Bignum_O,ret_val); // allocate the result
-    ret_val->realloc_limbs(std::max(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs)));
-    switch (operation) {
+    Bignum_sp b1; // need to convert everything to a bignum
+    Bignum_sp b2; // a potentially faster way to do it would be to treat a fixnum as one limb
+    
+    if(first.fixnump())b1=Bignum_O::create(first.unsafe_fixnum());
+    else b1 = gc::As<Bignum_sp>(first);
+    if(b2.fixnump())b2=Bignum_O::create(second.unsafe_fixnum());
+    else b2 = gc::As<Bignum_sp>(second);
+    //GC_ALLOCATE_VARIADIC(Bignum_O,ret_val); // allocate the result
+    //ret_val->realloc_limbs(std::max(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs)));
+    switch (operation) { // We make use here of binary identities
+      //in the sign-magnitude representation.
     case boole_and:
-        //mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        SIMPLE_ERROR(BF("Unknown operation in cl__and_operation_rest"));
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_and_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            return _clasp_big_andn_magnitude(b1, b2->abs_()->oneMinus_())
+              ->normalize()->maybe_as_fixnum();
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+            return _clasp_big_andn_magnitude(b2,b1->abs_()->oneMinus_())
+              ->normalize()->maybe_as_fixnum();
+          }
+          else{// b1<0,b2<0
+            return _clasp_maybe_as_fixnum(
+                                          _clasp_big_ior_magnitude(b1->abs_()->oneMinus_(),b2->abs_()->oneMinus_())->negate_()->oneMinus_());
+          }
+        }
         break;
     case boole_xor:
-        //mpz_xor(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        SIMPLE_ERROR(BF("Unknown operation in cl__xor_operation_rest"));
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_xor_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_ior:
-        //mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        SIMPLE_ERROR(BF("Unknown operation in cl__ior_operation_rest"));
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_ior_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_eqv:
-        //mpz_xor(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        //mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
-        SIMPLE_ERROR(BF("Unknown operation in cl__eqv_operation_rest"));
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_andc1:
-        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
-        
-        if(first_big_internal->plusp_() && second_big_internal->plusp_()){
-          mpn_and_n(ret_val->limbs,second_big_internal->limbs,first_big_internal->limbs,
-                    std::min(abs(first_big_internal->numberoflimbs),abs(second_big_internal->numberoflimbs)));
-          return ret_val;
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_andn_magnitude(b2,b1)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
         }
-        SIMPLE_ERROR(BF("Unknown operation in cl__andc1_operation_rest"));
-        //mpz_and(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
         break;
     case boole_andc2:
-        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-       if(!first_big_internal->minusp_() && !second_big_internal->minusp_()){
-            //mpn_and_n(ret_val->limbs,first_big_internal->limbs,second_big_internal->limbs,abs(ret_val->numberoflimbs));
-         std::cout << "should have done a proper andc2 here";
-          return ret_val;
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_andn_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            return _clasp_big_and_magnitude(b1,b2->abs_()->oneMinus_());
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
         }
-        first_big_internal->debug_print();
-        second_big_internal->debug_print();
-        SIMPLE_ERROR(BF("Unknown operation in cl__andc2_operation_rest"));
-        //mpz_and(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
-        
         break;
     case boole_orc1:
-        SIMPLE_ERROR(BF("Unknown operation in cl__orc1_operation_rest"));
-        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t());
-        //mpz_ior(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_iorn_magnitude(b2,b1)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_orc2:
-        SIMPLE_ERROR(BF("Unknown operation in cl__orc2_operation_rest"));
-        //mpz_com(temp_bignum.get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        //mpz_ior(result_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), temp_bignum.get_mpz_t());
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_iorn_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_nand:
-        SIMPLE_ERROR(BF("Unknown operation in cl__nande_operation_rest"));
-        //mpz_and(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        ///mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_nand_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     case boole_nor:
-        SIMPLE_ERROR(BF("Unknown operation in cl__nor_operation_rest"));
-        //mpz_ior(temp_bignum.get_mpz_t(), clasp_to_mpz(first).get_mpz_t(), clasp_to_mpz(second).get_mpz_t());
-        //mpz_com(result_bignum.get_mpz_t(), temp_bignum.get_mpz_t());
+        if(!b1->minusp_()){
+          if(!b2->minusp_()){ // b1>=0,b2>=0
+            return _clasp_big_nand_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+          }
+          else{ //b1>=0,b2<0
+            
+          }
+        } else{
+          if(!b2->minusp_()){ // b1<0,b2>=0
+          }
+          else{// b1<0,b2<0
+          }
+        }
         break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));
     }
-    return ret_val;
+    std::cout << "The operation was" << operation << "\n";
+    b1->debug_print();
+    b2->debug_print();
+    
+    SIMPLE_ERROR(BF("Operation unimplemented "));
+
+    //return ret_val;
     //return Integer_O::create(result_bignum);
   }
 }
@@ -579,21 +681,24 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
      case boole_and:
          if(acc_bignum->numberoflimbs!=0)
            //mpn_and_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
-           std::cout << "should have done a proper and here\n";
+           //std::cout << "should have done a proper and here\n";
+           acc_bignum=log_operation_2op(boole_and,acc_bignum,icur_big);
          break;
      case boole_xor:
          //mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-         SIMPLE_ERROR(BF("xor not done yet cl__log_operation_rest"));
+         acc_bignum=log_operation_2op(boole_xor,acc_bignum,icur_big);
          break;
-     case boole_ior:
+    case boole_ior:
          //mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
          //if(acc_bignum->numberoflimbs!=0)mpn_ior_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
-         std::cout << "should have done a proper ior here \n";
-         break;
-    // case boole_eqv:
+        
+        acc_bignum=log_operation_2op(boole_ior,acc_bignum,icur_big);
+        break;
+     case boole_eqv:
     //     mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
     //     mpz_com(temp.get_mpz_t(), temp1.get_mpz_t());
-    //     break;
+         acc_bignum=log_operation_2op(boole_eqv,acc_bignum,icur_big);
+         break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));
     }
@@ -682,12 +787,9 @@ CL_DEFUN Integer_sp cl__lognot(Integer_sp a) {
     // in ecl return @logxor(2,x,ecl_make_fixnum(-1))
     return clasp_make_fixnum(a.unsafe_fixnum() ^ -1);   
   }
-  else {
-    SIMPLE_ERROR(BF("implement lognot for bignums"));
-    // mpz_class za = clasp_to_mpz(a);
-    // mpz_class cza;
-    // mpz_com(cza.get_mpz_t(), za.get_mpz_t());
-    // return Integer_O::create(cza);
+  else { // In sign-magnitude representation, ~x ==> -x-1
+    
+    return _clasp_maybe_as_fixnum(gc::As<Bignum_sp>(a)->negate_()->oneMinus_());
   }
 };
 

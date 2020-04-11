@@ -270,10 +270,38 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum : {
       //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
       //mpz_class zc = gc::As<Bignum_sp>(na)->ref() + zb; return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
+      Bignum_sp b1=gc::As<Bignum_sp>(na);
+      Bignum_sp b2=Bignum_O::create(nb.unsafe_fixnum());
+      if(!b1->minusp_()){
+        if(!b2->minusp_()){ // b1>=0,b2>=0
+          return _clasp_big_add_magnitude(b1,b2)->maybe_as_fixnum();
+        }
+        else{ //b1>=0,b2<0
+            
+        }
+      } else{
+        if(!b2->minusp_()){ // b1<0,b2>=0
+        }
+        else{// b1<0,b2<0
+        }
+      }
     }
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() + gc::As<Bignum_sp>(nb)->ref());
-      SIMPLE_ERROR(BF("implement case_Bignum_v_Bignum"));
+      Bignum_sp b1=gc::As<Bignum_sp>(na);
+      Bignum_sp b2=gc::As<Bignum_sp>(nb);
+      if(!b1->minusp_()){
+        if(!b2->minusp_()){ // b1>=0,b2>=0
+          return _clasp_big_add_magnitude(b1,b2)->maybe_as_fixnum();
+        }
+        else{ //b1>=0,b2<0
+            
+        }
+      } else{
+        if(!b2->minusp_()){ // b1<0,b2>=0
+        }
+        else{// b1<0,b2<0
+        }
+      }
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -416,7 +444,26 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum : {
       //mpz_class zb(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(nb))));
      // mpz_class zc = gc::As<Bignum_sp>(na)->ref() - zb; return Integer_O::create(zc);
-      SIMPLE_ERROR(BF("implement case_Bignum_v_Fixnum"));
+      Bignum_sp ba=gc::As<Bignum_sp>(na);
+      Bignum_sp bb=Bignum_O::create(nb.unsafe_fixnum());
+      if(!ba->minusp_()){
+        if(!bb->minusp_()){ //a>=0,b>=0
+          if(_clasp_compare_big(ba,bb)>0){
+            return _clasp_big_difference_magnitude(ba,bb)->normalize()->negate_();
+          }
+          else{
+            return _clasp_big_difference_magnitude(ba,bb)->normalize();
+          }
+        }
+        else{
+        }
+      }
+      else{
+        if(!bb->minusp_()){
+        }
+        else{
+        }
+      }
     }
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() - gc::As<Bignum_sp>(nb)->ref());
       //SIMPLE_ERROR(BF("implement case_Bignum__v_Bignum"));
@@ -1434,14 +1481,30 @@ bool Number_O::equal(T_sp obj) const {
   return cl__eql(this->asSmartPtr(), obj);
 }
 
-Rational_sp Rational_O::create(Integer_sp num, Integer_sp denom) {
+__attribute__((optnone)) Rational_sp Rational_O::create(Integer_sp num, Integer_sp denom) {
   Bignum_sp big_numerator=Bignum_O::as_bignum(num);
   Bignum_sp big_denominator=Bignum_O::as_bignum(denom);
   ASSERT(!big_denominator->zerop_());
   if (big_denominator->zerop_())
     ERROR_DIVISION_BY_ZERO(num,denom);
   if(_clasp_compare_big(big_denominator,Bignum_O::create((Fixnum)1))){ //denominator=/=1
-    SIMPLE_ERROR(BF("Check for bignum division"));
+    GC_ALLOCATE(Bignum_O,quotient);
+    GC_ALLOCATE(Bignum_O,remainder);
+    if(abs(big_numerator->numberoflimbs)>=abs(big_denominator->numberoflimbs)){
+      quotient->realloc_limbs(abs(big_numerator->numberoflimbs)-abs(big_denominator->numberoflimbs)+1);
+      remainder->realloc_limbs(abs(big_denominator->numberoflimbs));
+      
+      mpn_tdiv_qr(quotient->limbs,remainder->limbs,0,
+                  big_numerator->limbs,abs(big_numerator->numberoflimbs),
+                  big_denominator->limbs,abs(big_denominator->numberoflimbs));
+      remainder->normalize();
+      
+      if(remainder->zerop_()){
+        quotient->numberoflimbs*=((big_numerator->plusp_()?1:-1)*(big_denominator->plusp_()?1:-1));
+        return quotient->normalize()->maybe_as_fixnum();
+      }
+    }
+    
   }
   else{ // denominator=1
     return big_numerator->maybe_as_fixnum();
