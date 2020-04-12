@@ -14,6 +14,21 @@
 
 namespace core {
 
+
+    std::string escaped_string(const std::string str)
+    {
+        std::stringstream ss;
+        ss << "\"";
+        for (size_t i=0; i<str.size(); ++i ) {
+            if (str[i]=='\"') {
+                ss << "\\\"";
+            } else {
+                ss << str[i];
+            }
+        }
+        ss << "\"";
+        return ss.str();
+    };
 static bool member_charbag(claspCharacter c, SEQUENCE_sp char_bag) {
   if (char_bag.nilp())
     return false;
@@ -1164,6 +1179,10 @@ SYMBOL_EXPORT_SC_(ClPkg, parseInteger);
 // Class SimpleBaseString_O
 //
 
+std::string SimpleBaseString_O::__repr__() const {
+    return escaped_string(this->get_std_string());
+}
+
 bool SimpleBaseString_O::equal(T_sp other) const {
   if (&*other==this) return true;
   if (!other.generalp()) return false;
@@ -1230,13 +1249,18 @@ std::string SimpleCharacterString_O::get_std_string() const {
 }
 
 std::string SimpleCharacterString_O::__repr__() const {
-  return this->get_std_string();
+    return escaped_string(this->get_std_string());
 }
+
 
 // ------------------------------------------------------------
 //
 // Class Str8Ns
 //
+
+std::string Str8Ns_O::__repr__() const {
+    return escaped_string(this->get_std_string());
+}
 
 bool Str8Ns_O::equal(T_sp other) const {
   if (&*other==this) return true;
@@ -1360,7 +1384,7 @@ std::string StrWNs_O::get_std_string() const {
 }
 
 std::string StrWNs_O::__repr__() const {
-  return this->get_std_string();
+    return escaped_string(this->get_std_string());
 }
 
 SimpleString_sp StrWNs_O::asMinimalSimpleString() const {

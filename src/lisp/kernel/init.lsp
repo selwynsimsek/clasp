@@ -6,8 +6,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (core:select-package "CORE"))
 
-(setq *features* (cons :meister-hack *features*))
-
 #+(or)(setq *features* (cons :dbg-print *features*))
 (SYS:*MAKE-SPECIAL '*echo-repl-tpl-read*)
 (export '(*echo-repl-tpl-read*
@@ -205,7 +203,8 @@
           generate-encoding-hashtable
           quit
           btcl
-          ihs-argument))
+          ihs-argument
+          with-float-traps-masked))
 (core:*make-special '*module-provider-functions*)
 (core:*make-special '*source-location*)
 (setq *source-location* nil)

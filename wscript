@@ -285,10 +285,10 @@ def update_dependencies(cfg):
 #                       "master")
     fetch_git_revision("src/lisp/kernel/contrib/sicl",
                        "https://github.com/Bike/SICL.git",
-                       "a662d3761505a1d4c9b1fc71ebeebad641760b5c")
+                       "c1ca1943bf4354ba01f60e61cb4066c02aef0b38")
     fetch_git_revision("src/lisp/kernel/contrib/Concrete-Syntax-Tree",
                        "https://github.com/s-expressionists/Concrete-Syntax-Tree.git",
-                       "28dbbdd70dcc222062dadb156d8af305746cc1a8")
+                       "f4100714fd90805ba30221dc8dafa5a99f3cf6a0")
     fetch_git_revision("src/lisp/kernel/contrib/closer-mop",
                        "https://github.com/pcostanza/closer-mop.git",
                        "d4d1c7aa6aba9b4ac8b7bb78ff4902a52126633f")
@@ -297,7 +297,7 @@ def update_dependencies(cfg):
                        "dd15c86b0866fc5d8b474be0da15c58a3c04c45c")
     fetch_git_revision("src/lisp/kernel/contrib/Eclector",
                        "https://github.com/clasp-developers/Eclector.git",
-                       "0ec57a718a16af6681e624183e1d6000d1d496d2")
+                       "363c495ea3c4dc11274cccb1964ab95ab53b3966")
 #"66cf5e2370eef4be659212269272a5e79a82fa1c")
 #                      "7b63e7bbe6c60d3ad3413a231835be6f5824240a") works with AST clasp
     fetch_git_revision("src/lisp/kernel/contrib/alexandria",
@@ -339,6 +339,17 @@ def analyze_clasp(cfg):
                      "--eval",    "(core:quit)")
     print("\n\n\n----------------- proceeding with static analysis --------------------")
 
+def test(cfg):
+    log.debug("Execute regression tests\n")
+    run_program_echo("build/clasp",
+                     "--feature", "ignore-extensions",
+                     "--load",    "sys:regression-tests;run-all.lisp",
+                     "--eval",    "(progn (format t \"~%Test done~%\")(core:quit))")
+    log.debug("Done regression tests\n")
+
+def tests(cfg):
+    test(cfg)
+    
 def stage_value(ctx,s):
     if ( s == 'r' ):
         sval = -1
@@ -1597,6 +1608,10 @@ def build(bld):
 
             install('bin/%s' % bld.cclasp_executable.name, bld.cclasp_executable, chmod = Utils.O755)
             bld.symlink_as('${PREFIX}/bin/clasp', bld.cclasp_executable.name)
+            task = symlink_executable(env=bld.env)
+            task.set_inputs(bld.cclasp_executable)
+            task.set_outputs(clasp_symlink_node)
+            bld.add_to_group(task)
 #            os.symlink(bld.cclasp_executable.abspath(), clasp_symlink_node.abspath())
 #        else:
 #            os.symlink(bld.iclasp_executable.abspath(), clasp_symlink_node.abspath())
