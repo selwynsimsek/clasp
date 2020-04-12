@@ -175,7 +175,6 @@ SYMBOL_EXPORT_SC_(ExtPkg, STARinvoke_debugger_hookSTAR);
 SYMBOL_EXPORT_SC_(CorePkg,variable_source_location)
 SYMBOL_EXPORT_SC_(CorePkg,class_source_location)
 SYMBOL_EXPORT_SC_(CorePkg,STARdebug_hash_tableSTAR)
-SYMBOL_EXPORT_SC_(CorePkg,bt)
 SYMBOL_EXPORT_SC_(CorePkg,btcl)
 SYMBOL_EXPORT_SC_(CorePkg,STARdebug_fastgfSTAR);
 SYMBOL_EXPORT_SC_(CorePkg,cxx_method_source_location);
@@ -1226,8 +1225,8 @@ void CoreExposer_O::define_essential_globals(Lisp_sp lisp) {
   _sym_STARdebug_dtree_interpreterSTAR->defparameter(_Nil<core::T_O>());
   _sym_STARdebug_symbol_lookupSTAR->defparameter(_Nil<core::T_O>());
 #if defined(__x86_64__)
-  SYMBOL_EXPORT_SC_(KeywordPkg, address_model_64);
-  Symbol_sp address_model = kw::_sym_address_model_64;
+  SYMBOL_EXPORT_SC_(KeywordPkg, 64_bit);
+  Symbol_sp address_model = kw::_sym_64_bit;
 
 #if defined(__APPLE__) && defined(__MACH__)
 #include <TargetConditionals.h>
@@ -1259,8 +1258,8 @@ void CoreExposer_O::define_essential_globals(Lisp_sp lisp) {
 
 #elif defined(__i386__)
 
-  SYMBOL_EXPORT_SC_(KeywordPkg, address_model_32);
-  Symbol_sp address_model = kw::_sym_address_model_32;
+  SYMBOL_EXPORT_SC_(KeywordPkg, 32_bit);
+  Symbol_sp address_model = kw::_sym_32_bit;
 
 #if defined(__linux__)
 

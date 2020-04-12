@@ -1,4 +1,5 @@
 #include <signal.h>
+#include <xmmintrin.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <clasp/core/foundation.h>
 #include <clasp/core/symbol.h>
@@ -253,17 +254,59 @@ int global_pollTicksPerCleanup = INITIAL_GLOBAL_POLL_TICKS_PER_CLEANUP;
 int global_signalTrap = 0;
 int global_pollTicksGC = INITIAL_GLOBAL_POLL_TICKS_PER_CLEANUP;
 
+CL_DEFUN void core__disable_all_fpe_masks() {
+  _MM_SET_EXCEPTION_MASK(_MM_MASK_MASK);
+}
+
+CL_LAMBDA(&key underflow overflow inexact invalid divide-by-zero denormalized-operand);
+CL_DECLARE();
+CL_DOCSTRING("zerop");
+CL_DEFUN void core__enable_fpe_masks(core::T_sp underflow, core::T_sp overflow, core::T_sp inexact, core::T_sp invalid, core::T_sp divide_by_zero, core::T_sp denormalized_operand) {
+  // See https://doc.rust-lang.org/stable/core/arch/x86_64/fn._mm_setcsr.html
+  // mask all -> no fpe-exceptions
+  _MM_SET_EXCEPTION_MASK(_MM_MASK_MASK);
+  if (underflow.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_UNDERFLOW));
+  if (overflow.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_OVERFLOW));
+  if (inexact.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_INEXACT));
+  if (invalid.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_INVALID));
+  if (divide_by_zero.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_DIV_ZERO));
+  if (denormalized_operand.notnilp())
+    _mm_setcsr(_mm_getcsr() & (~ _MM_MASK_DENORM));
+}
+
+CL_DEFUN core::Fixnum_sp core__get_current_fpe_mask() {
+  unsigned int before = _MM_GET_EXCEPTION_MASK ();
+  return core::clasp_make_fixnum(before);
+}
+
+CL_DEFUN void core__set_current_fpe_mask(core::Fixnum_sp mask) {
+  Fixnum value = core::unbox_fixnum(mask);
+  _MM_SET_EXCEPTION_MASK(value);
+}
+  
 void handle_fpe(int signo, siginfo_t* info, void* context) {
   (void)context; // unused
-  init_float_traps(); // WHY
+  // printf("Enter handle_fpe Signo: %d Errno:%d Code:%d\n", (info->si_signo), (info->si_errno), (info->si_code));
+  // init_float_traps(); // WHY
   // TODO: Get operation and operands when possible.
   // Probably off the call stack.
   switch (info->si_code) {
+    #ifdef _TARGET_OS_DARWIN
+  case FPE_NOOP:   NO_INITIALIZERS_ERROR(cl::_sym_arithmeticError);
+    #endif
+  case FPE_INTDIV: NO_INITIALIZERS_ERROR(cl::_sym_divisionByZero);
+  case FPE_INTOVF: NO_INITIALIZERS_ERROR(cl::_sym_arithmeticError);
   case FPE_FLTDIV: NO_INITIALIZERS_ERROR(cl::_sym_divisionByZero);
   case FPE_FLTOVF: NO_INITIALIZERS_ERROR(cl::_sym_floatingPointOverflow);
   case FPE_FLTUND: NO_INITIALIZERS_ERROR(cl::_sym_floatingPointUnderflow);
   case FPE_FLTRES: NO_INITIALIZERS_ERROR(cl::_sym_floatingPointInexact);
   case FPE_FLTINV: NO_INITIALIZERS_ERROR(cl::_sym_floatingPointInvalidOperation);
+  case FPE_FLTSUB: NO_INITIALIZERS_ERROR(cl::_sym_arithmeticError);
   default: // FIXME: signal a better error.
       // Can end up here with e.g. SI_USER if it originated from kill
       handle_signal_now(signo);
@@ -335,12 +378,13 @@ void initialize_signals(int clasp_signal) {
   if (!getenv("CLASP_DONT_HANDLE_CRASH_SIGNALS")) {
     INIT_SIGNAL(SIGABRT, (SA_NODEFER | SA_RESTART), handle_or_queue_signal);
     INIT_SIGNALI(SIGSEGV, (SA_NODEFER | SA_RESTART | SA_ONSTACK), handle_segv);
-    INIT_SIGNAL(SIGBUS, (SA_NODEFER | SA_RESTART), handle_signal_now);
+    INIT_SIGNALI(SIGBUS, (SA_NODEFER | SA_RESTART), handle_bus);
   }
   INIT_SIGNALI(SIGFPE, (SA_NODEFER | SA_RESTART), handle_fpe);
   INIT_SIGNAL(SIGILL, (SA_NODEFER | SA_RESTART), handle_signal_now);
   // FIXME: Move?
   init_float_traps();
+  // core__disable_fpe_masks();
   llvm::install_fatal_error_handler(fatal_error_handler, NULL);
 }
 
@@ -380,18 +424,25 @@ void initialize_unix_signal_handlers() {
 #ifdef SIGEMT
         ADD_SIGNAL( SIGEMT, "SIGEMT", _Nil<core::T_O>());
 #endif
+/*
+// We do install a sigfpe handler in initialize_signals
 #ifdef SIGFPE
         ADD_SIGNAL( SIGFPE, "SIGFPE", _Nil<core::T_O>());
 #endif
+*/
 #ifdef SIGKILL
         ADD_SIGNAL( SIGKILL, "SIGKILL", _Nil<core::T_O>());
 #endif
+/*
+// These take a parameter, so will fail if called here, since handle_signal_now call with no parameters
+// We do install correct handlers in initialize_signals
 #ifdef SIGBUS
         ADD_SIGNAL( SIGBUS, "SIGBUS", ext::_sym_bus_error);
 #endif
 #ifdef SIGSEGV
         ADD_SIGNAL( SIGSEGV, "SIGSEGV", ext::_sym_segmentation_violation);
 #endif
+*/
 #ifdef SIGSYS
         ADD_SIGNAL( SIGSYS, "SIGSYS", _Nil<core::T_O>());
 #endif
@@ -416,9 +467,12 @@ void initialize_unix_signal_handlers() {
 #ifdef SIGCONT
         ADD_SIGNAL( SIGCONT, "SIGCONT", _Nil<core::T_O>());
 #endif
+/*
+// core::_sym_wait_for_all_processes is undefined
 #ifdef SIGCHLD
         ADD_SIGNAL( SIGCHLD, "SIGCHLD", core::_sym_wait_for_all_processes);
 #endif
+*/
 #ifdef SIGTTIN
         ADD_SIGNAL( SIGTTIN, "SIGTTIN", _Nil<core::T_O>());
 #endif

@@ -31,16 +31,15 @@
 (in-package "SYSTEM")
 
 ;;; ----------------------------------------------------------------------
-;;; Unique Ids
-
-(defmacro unique-id (obj)
-  "Generates a unique integer ID for its argument."
-  `(sys:pointer ,obj))
 
 
 ;;; Restarts
 
+;;; Current restarts available. A list of lists of restarts.
+;;; Each RESTART-BIND adds another list of restarts to this list.
 (defparameter *restart-clusters* ())
+;;; Current condition-restarts associations, made by WITH-CONDITION-RESTARTS.
+;;; A list of (condition . restarts) lists.
 (defparameter *condition-restarts* ())
 
 (defun compute-restarts (&optional condition)
@@ -57,38 +56,63 @@
 	(when (and (or (not condition)
 		       (member restart assoc-restart)
 		       (not (member restart other)))
-		   (funcall (restart-test-function restart) condition))
+		   (funcall (ext:restart-test-function restart) condition))
 	  (push restart output))))
     (nreverse output)))
 
-(defun restart-print (restart stream depth)
-  (declare (ignore depth))
+;;; Not used here, but can be useful to debuggers
+(defun ext:restart-associated-conditions (restart)
+  (let ((conditions ()))
+    (dolist (i *condition-restarts* conditions)
+      (when (member restart (rest i))
+        (pushnew (first i) conditions :test #'eq)))))
+
+(defclass restart ()
+  ((%name :initarg :name :reader restart-name)
+   (%function :initarg :function :reader ext:restart-function
+              :type function)
+   (%report-function :initarg :report-function
+                     :reader ext:restart-report-function
+                     :type (function (stream)))
+   (%interactive-function :initarg :interactive-function
+                          :reader ext:restart-interactive-function
+                          :initform (constantly ())
+                          :type (function () list))
+   (%test-function :initarg :test-function
+                   :reader ext:restart-test-function
+                   :initform (constantly t)
+                   :type (function (condition) t))))
+
+;;; This is necessary for bootstrapping reasons: assert.lsp, at least,
+;;; uses restart-bind before CLOS and static-gfs are up.
+(defun make-restart (&key name function
+                       (report-function
+                        (lambda (stream) (prin1 name stream)))
+                       (interactive-function (constantly ()))
+                       (test-function (constantly t)))
+  (declare (notinline make-instance))
+  (make-instance 'restart
+    :name name :function function
+    :report-function report-function
+    :interactive-function interactive-function
+    :test-function test-function))
+
+(defun restart-p (object) (typep object 'restart))
+
+(defmethod print-object ((restart restart) stream)
   (if *print-escape*
-      (format stream "#<~s.~d>" (type-of restart) (unique-id restart))
-      (restart-report restart stream))
+      (print-unreadable-object (restart stream :type t :identity t)
+        (write (restart-name restart) :stream stream))
+      (funcall (ext:restart-report-function restart) stream))
   restart)
-
-(defstruct (restart (:print-function restart-print))
-  name
-  function
-  report-function
-  interactive-function
-  (test-function (constantly t)))
-
-
-(defun restart-report (restart stream)
-  (let ((fn (restart-report-function restart)))
-    (if fn
-	(funcall fn stream)
-        (prin1 (or (restart-name restart) restart) stream))))
 
 (defmacro restart-bind (bindings &body forms)
   `(let ((*restart-clusters*
 	  (cons (list ,@(mapcar #'(lambda (binding)
 				    `(make-restart
-				      :NAME     ',(car binding)
-				      :FUNCTION ,(cadr binding)
-				      ,@(cddr binding)))
+                                       :NAME     ',(car binding)
+                                       :FUNCTION ,(cadr binding)
+                                       ,@(cddr binding)))
 				bindings))
 		*restart-clusters*)))
      ,@forms))
@@ -123,16 +147,13 @@
 
 (defun invoke-restart (restart &rest values)
   (let ((real-restart (coerce-restart-designator restart)))
-    (apply (restart-function real-restart) values)))
+    (apply (ext:restart-function real-restart) values)))
 
 (defun invoke-restart-interactively (restart)
   (let ((real-restart (coerce-restart-designator restart)))
-    (apply (restart-function real-restart)
-	   (let ((interactive-function
-		   (restart-interactive-function real-restart)))
-	     (if interactive-function
-		 (funcall interactive-function)
-		 '())))))
+    (apply (ext:restart-function real-restart)
+           (funcall
+            (ext:restart-interactive-function real-restart)))))
 
 
 (defun munge-with-condition-restarts-form (original-form env)
@@ -626,6 +647,38 @@ This is due to either a problem in foreign code (e.g., C++), or a bug in Clasp i
 (define-condition core:out-of-extent-unwind (control-error)
   ()
   (:report "Attempted to return or go to an expired block or tagbody tag."))
+
+#+threads
+(define-condition mp:process-error (error)
+  ((process :initarg :process :reader mp:process-error-process))
+  (:documentation "Superclass of errors relating to processes."))
+
+#+threads
+(define-condition mp:process-join-error (mp:process-error)
+  ((original-condition :initarg :original-condition :initform nil
+                       :reader mp:process-join-error-original-condition))
+  (:report
+   (lambda (condition stream)
+     (format stream "Failed to join process: Process ~s aborted~:[.~; ~
+due to error:~%  ~:*~a~]"
+             (mp:process-error-process condition)
+             (mp:process-join-error-original-condition condition))))
+  (:documentation "PROCESS-JOIN signals a condition of this type when the thread being joined ended abnormally."))
+
+#+threads
+(progn
+  ;; Somewhat KLUDGE-y way to add an ABORT restart to every new thread.
+  ;; FIXME: Actually pass the damn condition to abort-thread.
+  ;; The normal ABORT restart doesn't work for this since it takes no
+  ;; arguments. Annoying.
+  (mp:push-default-special-binding
+   '*restart-clusters*
+   '(list (list (make-restart
+                  :name 'abort
+                  :function #'mp:abort-process
+                  :report-function (lambda (stream)
+                                     (format stream "Abort the process (~s)"
+                                             mp:*current-process*)))))))
 
 (define-condition stream-error (error)
   ((stream :initarg :stream :reader stream-error-stream)))
