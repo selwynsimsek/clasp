@@ -748,7 +748,7 @@ CL_DEFUN Number_sp contagen_div(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum:
   case_Fixnum_v_Bignum:
   case_Bignum_v_Bignum://  return Rational_O::create(clasp_to_mpz(na), clasp_to_mpz(nb));
-    return Rational_O::create(na,nb);
+    return Rational_O::create(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio:
     return Rational_O::create(gc::As<Integer_sp>(contagen_mul(na, gc::As<Ratio_sp>(nb)->denominator())),
@@ -2106,7 +2106,7 @@ Number_sp Bignum_O::sqrt_() const {
 }
 
 Number_sp Bignum_O::reciprocal_() const {//  return Rational_O::create(clasp_to_mpz(clasp_make_fixnum(1)), this->_value);
-  return Rational_O::create(immediate_fixnum<Number_O>(1),this->copy_());
+  return Rational_O::create(immediate_fixnum<Integer_O>(1),gc::As<Integer_sp>(this->copy_()));
   //SIMPLE_ERROR(BF("implement reciprocal for Bignum"));
 }
 
@@ -3080,7 +3080,7 @@ Fixnum clasp_to_fixnum( core::T_sp x )
   } else if (gc::IsA<Bignum_sp>(x)){
     //gc::As_unsafe<Bignum_sp>(x)
     Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
-    Bignum_sp pointer;
+    T_sp pointer;
     if((pointer=bx->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
   }
    // LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
@@ -3099,7 +3099,7 @@ Fixnum clasp_to_fixnum( core::Integer_sp x )
     //Bignum_sp bx = gc::As_unsafe<Bignum_sp>(x);
     //LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
     //  return static_cast<size_t>(bx->mpz_ref().get_si());
-    Bignum_sp pointer;
+    T_sp pointer;
     if((pointer=gc::As_unsafe<Bignum_sp>(x)->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
     
   }

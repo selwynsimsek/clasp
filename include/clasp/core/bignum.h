@@ -60,7 +60,7 @@ public: // instance variables here
   // Fast Bignum specification: (selwyn 6 apr 2020)
   // The low-level GMP routines beginning mpn_ (n for natural number) are written with natural numbers (positive non-zero integers) in mind. Per the GMP
   // manual, the interfaces are not necessarily consistent, and in particular, no method can be assumed to work with negative numbers, since there is no
-  //  explicit specification of them.
+  //  explicit specification of them. 
 
   // We here define a negative number S to have minus the numberoflimbs of the positive integer |S| and the limbs of |S|, i.e. the magnitude. This choice
   // is consistent with that of mpn_gcdext, for example, but care should be taken not to use the low level routines without first checking to see if they
@@ -69,8 +69,8 @@ public: // instance variables here
   // https://gmplib.org/manual/Integer-Internals.html
 
   // If numberoflimbs=/=0, limbs[|numberoflimbs|-1] may not be 0, and 0 is represented by having numberoflimbs=0.
-  // This ensures uniqueness of representation. All returned bignums and bignums passed as arguments must satisfy this.
-  // maybe_as_fixnum() should be called on bignums being returned as results of computations.
+  // This ensures uniqueness of representation. All returned bignums and bignums passed as arguments must satisfy this. Calling normalize() on a bignum ensures that this is the case.
+  // maybe_as_fixnum() should be called on bignums being returned as results of computations, to ensure that a bignum is not supplied where an immediate fixnum could (and should) be used. Bignums can take the value of fixnums at intermediate points throughout a calculation.
   // c.f. ecl:src/c/big.d for comparison.
   // ====
   
@@ -80,6 +80,22 @@ public: // instance variables here
 public: // Functions here
   static Bignum_sp make(const string &value_in_string, unsigned int base=10);
 
+  // New bignum API. These won't return immediate fixnums even if they can.
+  
+  static Bignum_sp magnitude_sum(Bignum_sp a,Bignum_sp b); // |a| + |b|
+  static Bignum_sp magnitude_difference(Bignum_sp a,Bignum_sp b); // | |b| - |a| |
+  static Bignum_sp magnitude_xnor(Bignum_sp a, Bignum_sp b); // ~(|a| ^ |b|)
+  static Bignum_sp magnitude_nior(Bignum_sp a,Bignum_sp b); //~(|a| | |b|)
+  static Bignum_sp divide(Bignum_sp n, Bignum_sp d); // n/d
+  static int compare(Bignum_sp a, Bignum_sp b); // +ve if a<b, 0 if a=b, -ve if a>b
+  static Bignum_sp magnitude_and(Bignum_sp a, Bignum_sp b); // |a| & |b|
+  static Bignum_sp magnitude_ior(Bignum_sp a, Bignum_sp b);
+  static Bignum_sp magnitude_xor(Bignum_sp a, Bignum_sp b); // |a| ^ |b|
+  static Bignum_sp magnitude_andn(Bignum_sp a,Bignum_sp b); // |a| & ~|b|
+  static Bignum_sp magnitude_iorn(Bignum_sp a, Bignum_sp b); // |a| | ~|b|
+  static Bignum_sp magnitude_nand(Bignum_sp a,Bignum_sp b); // ~(|a| & |b|)
+  static Bignum_sp gcd(Bignum_sp a, Bignum_sp b) // greatest common divisor
+  static Bignum_sp product(Bignum_sp a,Bignum_sp b); // a times b
 
 
 #if !defined( CLASP_FIXNUM_IS_INT64 )
@@ -188,12 +204,12 @@ public: // Functions here
   
 
   virtual void increment() {
-    Bignum_sp incf=this->onePlus_();
+    Bignum_sp incf=gc::As<Bignum_sp>(this->onePlus_());
     this->realloc_limbs(incf->numberoflimbs);
     mpn_copyi(this->limbs,incf->limbs,abs(incf->numberoflimbs));
   };
   virtual void decrement() {
-    Bignum_sp decf=this->oneMinus_();
+    Bignum_sp decf=gc::As<Bignum_sp>(this->oneMinus_());
     this->realloc_limbs(decf->numberoflimbs);
     mpn_copyi(this->limbs,decf->limbs,abs(decf->numberoflimbs));
   };
@@ -206,7 +222,7 @@ public: // Functions here
   void set(gc::Fixnum val) ;
   void setFixnum(gctools::Fixnum val) {
     this->set_to_fixnum(val);};
-  Number_sp abs_() const;
+  Bignum_sp abs_() const;
   Number_sp sqrt_() const;
   Number_sp reciprocal_() const;
   Number_sp rational_() const final { return this->asSmartPtr(); };
@@ -219,7 +235,7 @@ public: // Functions here
     this->numberoflimbs=n;
     this->limbs=(mp_limb_t*)GC_MALLOC((1+abs(n))*sizeof(mp_limb_t)); // We allocate one more limb in order not to copy again when adding or subtracting.
   }
-  Number_sp copy_() const
+  Bignum_sp copy_() const
   {
     GC_ALLOCATE_VARIADIC(Bignum_O,copy);
     copy->realloc_limbs(this->numberoflimbs);
@@ -404,182 +420,12 @@ inline Integer_sp fixnum_to_bignum(Fixnum fixnum){
 
   Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y);
 
-inline Integer_sp _clasp_big_divided_by_big(Bignum_sp n,Bignum_sp d){
-  n->normalize();
-  d->normalize();
-  GC_ALLOCATE(Bignum_O,result);
-  result->realloc_limbs(abs(n->numberoflimbs)-abs(d->numberoflimbs)+1); // check quotient rounding
-  GC_ALLOCATE(Bignum_O,remainder);
-  remainder->realloc_limbs(abs(d->numberoflimbs));
-  mpn_tdiv_qr(result->limbs,remainder->limbs,0,n->limbs,abs(n->numberoflimbs),d->limbs,abs(d->numberoflimbs));
-  if((n->numberoflimbs * d->numberoflimbs) < 0)result->numberoflimbs*=-1;
-  return result->normalize();
-}
 
-inline int _clasp_compare_big(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, negative if a>b, 0 otherwise
-  if(a->numberoflimbs<b->numberoflimbs)return -1;
-  if(a->numberoflimbs>b->numberoflimbs)return 1;
-  if(a->numberoflimbs==0)return 0; //they are both zero
-  // have to do a comparison between two non-zero bignums of the same limb length
-  int cmp_result=mpn_cmp(a->limbs,b->limbs,abs(a->numberoflimbs));
-  return (a->numberoflimbs>0)?-cmp_result:cmp_result;
-};
 
-inline Bignum_sp _clasp_big_and_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| & |b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_and_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_ior_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| | |b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_ior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_xor_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| ^ |b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_xor_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_andn_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| & ~|b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_andn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_iorn_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| | ~|b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_iorn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_nand_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp ~(|a| & |b|).
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_nand_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_nior_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp ~(|a| | |b|).
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_nior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Bignum_sp _clasp_big_xnor_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp ~(|a| ^ |b|).
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(a->numberoflimbs); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_xnor_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
-  return result;
-}
-
-inline Number_sp _clasp_maybe_as_fixnum(Bignum_sp num){
-  if(num.fixnump())return immediate_fixnum<Number_sp>(num.unsafe_fixnum());
+inline T_sp _clasp_maybe_as_fixnum(Bignum_sp num){
+  if(num.fixnump())return make_fixnum(num.unsafe_fixnum());
   return num;
 }
-
-inline Bignum_sp _clasp_big_add_magnitude(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| + |b|.
-  GC_ALLOCATE(Bignum_O,result);
-  if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  result->realloc_limbs(abs(a->numberoflimbs)+1);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_add(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
-  return result->normalize();
-}
-
-inline Bignum_sp _clasp_big_difference_magnitude(Bignum_sp a, Bignum_sp b){
-  //Returns a Bignum_sp | |b| - |a||
-  a=a->abs_();
-  b=b->abs_();
-  if(_clasp_compare_big(a,b)>0){
-    Bignum_sp temp=a;
-    a=b;
-    b=temp;
-  }
-  GC_ALLOCATE(Bignum_O,result);
-  result->realloc_limbs(abs(a->numberoflimbs)+1);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_sub(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
-  return result->normalize();
-}
-
 
 
 

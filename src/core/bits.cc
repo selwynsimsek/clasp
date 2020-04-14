@@ -446,17 +446,17 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
             return _clasp_big_and_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
-            return _clasp_big_andn_magnitude(b1, b2->abs_()->oneMinus_())
+            return _clasp_big_andn_magnitude(b1, gc::As<Bignum_sp>(b2->abs_()->oneMinus_()))
               ->normalize()->maybe_as_fixnum();
           }
         } else{
           if(!b2->minusp_()){ // b1<0,b2>=0
-            return _clasp_big_andn_magnitude(b2,b1->abs_()->oneMinus_())
+            return _clasp_big_andn_magnitude(b2,gc::As<Bignum_sp>(b1->abs_()->oneMinus_()))
               ->normalize()->maybe_as_fixnum();
           }
           else{// b1<0,b2<0
-            return _clasp_maybe_as_fixnum(
-                                          _clasp_big_ior_magnitude(b1->abs_()->oneMinus_(),b2->abs_()->oneMinus_())->negate_()->oneMinus_());
+            return 
+              gc::As<Integer_sp>(_clasp_big_ior_magnitude(gc::As<Bignum_sp>(b1->abs_()->oneMinus_()),gc::As<Bignum_sp>((b2->abs_()->oneMinus_())))->negate_()->oneMinus_());
           }
         }
         break;
@@ -526,7 +526,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
             return _clasp_big_andn_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
-            return _clasp_big_and_magnitude(b1,b2->abs_()->oneMinus_());
+            return _clasp_big_and_magnitude(b1,gc::As<Bignum_sp>(b2->abs_()->oneMinus_()));
           }
         } else{
           if(!b2->minusp_()){ // b1<0,b2>=0
@@ -682,22 +682,22 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
          if(acc_bignum->numberoflimbs!=0)
            //mpn_and_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
            //std::cout << "should have done a proper and here\n";
-           acc_bignum=log_operation_2op(boole_and,acc_bignum,icur_big);
+           acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_and,acc_bignum,icur_big));
          break;
      case boole_xor:
          //mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-         acc_bignum=log_operation_2op(boole_xor,acc_bignum,icur_big);
+         acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_xor,acc_bignum,icur_big));
          break;
     case boole_ior:
          //mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
          //if(acc_bignum->numberoflimbs!=0)mpn_ior_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
-        
-        acc_bignum=log_operation_2op(boole_ior,acc_bignum,icur_big);
+                                      
+        acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_ior,acc_bignum,icur_big));
         break;
      case boole_eqv:
     //     mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
     //     mpz_com(temp.get_mpz_t(), temp1.get_mpz_t());
-         acc_bignum=log_operation_2op(boole_eqv,acc_bignum,icur_big);
+         acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_eqv,acc_bignum,icur_big));
          break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));
@@ -789,7 +789,7 @@ CL_DEFUN Integer_sp cl__lognot(Integer_sp a) {
   }
   else { // In sign-magnitude representation, ~x ==> -x-1
     
-    return _clasp_maybe_as_fixnum(gc::As<Bignum_sp>(a)->negate_()->oneMinus_());
+    return gc::As<Integer_sp>((gc::As<Bignum_sp>(a)->negate_()->oneMinus_()));
   }
 };
 
