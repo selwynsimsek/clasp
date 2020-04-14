@@ -443,27 +443,27 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_and:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_and_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_and(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
-            return _clasp_big_andn_magnitude(b1, gc::As<Bignum_sp>(b2->abs_()->oneMinus_()))
-              ->normalize()->maybe_as_fixnum();
+            //return Bignum_O::magnitude_andn(b1, gc::As<Bignum_sp>(b2->abs_()->oneMinus_()))
+             // ->normalize()->maybe_as_fixnum();
           }
         } else{
           if(!b2->minusp_()){ // b1<0,b2>=0
-            return _clasp_big_andn_magnitude(b2,gc::As<Bignum_sp>(b1->abs_()->oneMinus_()))
-              ->normalize()->maybe_as_fixnum();
+         //   return _clasp_big_andn_magnitude(b2,gc::As<Bignum_sp>(b1->abs_()->oneMinus_()))
+           //   ->normalize()->maybe_as_fixnum();
           }
           else{// b1<0,b2<0
-            return 
-              gc::As<Integer_sp>(_clasp_big_ior_magnitude(gc::As<Bignum_sp>(b1->abs_()->oneMinus_()),gc::As<Bignum_sp>((b2->abs_()->oneMinus_())))->negate_()->oneMinus_());
+           //
+        //      gc::As<Integer_sp>(_clasp_big_ior_magnitude(gc::As<Bignum_sp>(b1->abs_()->oneMinus_()),gc::As<Bignum_sp>((b2->abs_()->oneMinus_())))->negate_()->oneMinus_());
           }
         }
         break;
     case boole_xor:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_xor_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_xor(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -478,7 +478,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_ior:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_ior_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_ior(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -508,7 +508,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_andc1:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_andn_magnitude(b2,b1)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_andn(b2,b1)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -523,10 +523,10 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_andc2:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_andn_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_andn(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
-            return _clasp_big_and_magnitude(b1,gc::As<Bignum_sp>(b2->abs_()->oneMinus_()));
+            //return _clasp_big_and_magnitude(b1,gc::As<Bignum_sp>(b2->abs_()->oneMinus_()));
           }
         } else{
           if(!b2->minusp_()){ // b1<0,b2>=0
@@ -538,7 +538,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_orc1:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_iorn_magnitude(b2,b1)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_iorn(b2,b1)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -553,7 +553,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_orc2:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_iorn_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_iorn(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -568,7 +568,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_nand:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_nand_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_nand(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             
@@ -583,7 +583,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_nor:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return _clasp_big_nand_magnitude(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_nior(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             

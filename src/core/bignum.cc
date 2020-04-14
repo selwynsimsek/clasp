@@ -76,20 +76,16 @@ LongLongInt Bignum_O::as_LongLongInt_() const {
 Integer_sp Bignum_O::maybe_as_fixnum() {
   //std::cout << "in maybe_as_fixnum \n";
   if(this->numberoflimbs >= 1){
-    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM
-       && (this->numberoflimbs==1 || mpn_zero_p(this->limbs+1,this->numberoflimbs-1))) //can check to see if less than 2^62 using an or
+    if(this->numberoflimbs ==1 && this->limbs[0] <= MOST_POSITIVE_FIXNUM)
+ //can check to see if less than 2^62 using an or
       return make_fixnum(this->limbs[0]);
   }
   if (this->numberoflimbs <= -1){
-    if(this->limbs[0] <= MOST_POSITIVE_FIXNUM+1
-       && (this->numberoflimbs==-1 || mpn_zero_p(this->limbs+1,-this->numberoflimbs-1)))
+    if((this->numberoflimbs==-1) && this->limbs[0] <= MOST_POSITIVE_FIXNUM+1)
       return make_fixnum(-((Fixnum)this->limbs[0]));
   }
   if(this->numberoflimbs == 0)
     return make_fixnum(0);
-  
-  //std::cout << "not a fixnum";
-  //this->debug_print();
   return this->asSmartPtr();
 }
 
@@ -332,66 +328,39 @@ gc::Fixnum Bignum_O::bit_length_() const {
 #endif 
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
-Integer_sp Bignum_O::shift_(gc::Fixnum bits) const {
-  if(this->numberoflimbs>0){ // positive
+Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
+  if(this->numberoflimbs==0)return Bignum_O::create((Fixnum)0); // we are zero,
+  // so shifting has no effect
+  if(bits < 0){ // right shift
+    bits=-bits;
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-    if(bits<0){ // right shift
-      shifted->realloc_limbs(this->numberoflimbs-(bits/GMP_LIMB_BITS));
-      //if((-bits) % GMP_LIMB_BITS)
-      if((-bits) & (GMP_LIMB_BITS-1))
-        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) & ( GMP_LIMB_BITS -1));
-      else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),this->numberoflimbs);
-      return shifted->normalize()->maybe_as_fixnum();
-    } else if(bits>0)
-    { //left shift
-      shifted->realloc_limbs(this->numberoflimbs+(bits/GMP_LIMB_BITS)+1);
-      //if( bits % GMP_LIMB_BITS)
-      if(bits & (GMP_LIMB_BITS-1))
-        shifted->limbs[shifted->numberoflimbs-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,shifted->numberoflimbs, bits & ( GMP_LIMB_BITS -1 ));
-      else{
-        mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,this->numberoflimbs);
-        shifted->numberoflimbs--;
-      }
-      return shifted->normalize();
+    shifted->realloc_limbs(abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS));
+    if(bits & (GMP_LIMB_BITS-1)){ // need to shift the limbs
+      mpn_rshift(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)-
+                 (bits/GMP_LIMB_BITS),
+                 (bits)& (GMP_LIMB_BITS -1));
     }
-    else{ //no shift
-      shifted->realloc_limbs(this->numberoflimbs);
-      mpn_copyi(shifted->limbs,this->limbs,shifted->numberoflimbs);
+    else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)
+                    -(bits/GMP_LIMB_BITS));
+    if(this->numberoflimbs > 0)
       return shifted->normalize();
-    }   
+    else return shifted->_big_onePlus()->negate_in_place(); // already normalized
   }
-  else if(this->numberoflimbs<0){ // negative - per clhs ash we should be treating negative numbers as if they are in two's complement
-    if(bits<0){// right shift
-      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->realloc_limbs(-this->numberoflimbs-(bits/GMP_LIMB_BITS));
-      if((-bits) & (GMP_LIMB_BITS -1))
-        mpn_rshift(shifted->limbs,this->limbs-(bits/GMP_LIMB_BITS),shifted->numberoflimbs,(- bits) % GMP_LIMB_BITS);
-      else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),-this->numberoflimbs);
-      shifted->numberoflimbs=-shifted->numberoflimbs;
-      shifted->decrement();
-      return shifted->normalize()->maybe_as_fixnum();
+  else if (bits >0){ // left shift
+    GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+    shifted->realloc_limbs(abs(this->numberoflimbs)+(bits/GMP_LIMB_BITS));
+    if(bits & (GMP_LIMB_BITS-1)){
+      mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs),
+                 bits & (GMP_LIMB_BITS -1));
     }
-    else if (bits>0){// left shift
-      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->realloc_limbs(this->numberoflimbs-(bits/GMP_LIMB_BITS)-1);
-      if(bits & (GMP_LIMB_BITS-1))
-        shifted->limbs[abs(shifted->numberoflimbs)-1]=mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs), bits & (GMP_LIMB_BITS-1));
-      else {
-        mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
-        shifted->numberoflimbs++;
-      }
-      return shifted->normalize();
-    }
-    else{ // no shift
-      GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-      shifted->realloc_limbs(this->numberoflimbs);
-      mpn_copyi(shifted->limbs,this->limbs,abs(shifted->numberoflimbs));
-      return shifted->normalize();
-    }
+    else mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
+    if(this->numberoflimbs < 0)shifted->negate_in_place();
+    return shifted;
   }
-  else // we are zero, shifting has no effect
-    return Bignum_O::create((Fixnum)0);
-  return this->asSmartPtr();
+  else return this->copy_();
+}
+Integer_sp Bignum_O::shift_(gc::Fixnum bits) const{
+  return this->shift_big(bits)->maybe_as_fixnum();
 }
 
 string Bignum_O::__repr__() const {
@@ -415,8 +384,8 @@ Number_sp Bignum_O::signum_() const {
   else
     return immediate_fixnum<Number_O>(-1);
 }
-
-Bignum_sp Bignum_O::abs_() const {
+Number_sp Bignum_O::abs_() const {return this->abs_big_()->maybe_as_fixnum();}
+Bignum_sp Bignum_O::abs_big_() const {
   GC_ALLOCATE_VARIADIC(Bignum_O,absolute);
   absolute->realloc_limbs(abs(this->numberoflimbs));
   mpn_copyi(absolute->limbs,this->limbs,absolute->numberoflimbs);
@@ -431,7 +400,7 @@ bool Bignum_O::eql_(T_sp o) const {
     return false;
   }
   if(Bignum_sp ny = o.asOrNull<Bignum_O>())
-    return 0==_clasp_compare_big(this->asSmartPtr(),ny);
+    return 0==Bignum_O::compare(this->asSmartPtr(),ny);
   else return false;
 }
 
@@ -513,9 +482,9 @@ Bignum_sp Bignum_O::magnitude_sum(Bignum_sp a,Bignum_sp b){
 
 Bignum_sp Bignum_O::magnitude_difference(Bignum_sp a, Bignum_sp b){
   //Returns a Bignum_sp | |b| - |a||
-  a=a->abs_();
-  b=b->abs_();
-  if(_clasp_compare_big(a,b)>0){
+  a=a->abs_big_();
+  b=b->abs_big_();
+  if(Bignum_O::compare(a,b)>0){
     Bignum_sp temp=a;
     a=b;
     b=temp;

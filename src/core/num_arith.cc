@@ -62,16 +62,19 @@ Integer_sp clasp_integer_divide(Integer_sp x, Integer_sp y) {
         ERROR_DIVISION_BY_ZERO(x, y);
       return (clasp_make_fixnum(x.unsafe_fixnum() / y.unsafe_fixnum()));
     } else if (ty == number_Bignum) {
-      return _clasp_big_divided_by_big(Bignum_O::create(x.unsafe_fixnum()), gc::As_unsafe<Bignum_sp>(y));
+      SIMPLE_ERROR(BF("divide big on big not done yet"));
+      //return _clasp_big_divided_by_big(Bignum_O::create(x.unsafe_fixnum()), gc::As_unsafe<Bignum_sp>(y));
     } else {
       ERROR_WRONG_TYPE_NTH_ARG(core::_sym_integer_divide, 2, y, cl::_sym_Integer_O);
     }
   }
   if (tx == number_Bignum) {
     if (ty == number_Bignum) {
-      return _clasp_big_divided_by_big(gc::As_unsafe<Bignum_sp>(x), gc::As_unsafe<Bignum_sp>(y));
+       
+        SIMPLE_ERROR(BF("divide big on big not done yet"));
     } else if (ty == number_Fixnum) {
-      return _clasp_big_divided_by_big(gc::As_unsafe<Bignum_sp>(x), Bignum_O::create(y.unsafe_fixnum()));
+       
+        SIMPLE_ERROR(BF("divide big on big not done yet"));
       //SIMPLE_ERROR(BF("implement integer drivide for big on fix"));
     } else {
       QERROR_WRONG_TYPE_NTH_ARG(2, y, cl::_sym_Integer_O);
@@ -130,7 +133,7 @@ Integer_sp clasp_gcd(Integer_sp x, Integer_sp y, int yidx) {
   default:
     QERROR_WRONG_TYPE_NTH_ARG(1 + yidx, y, cl::_sym_Integer_O);
   }
-  Bignum_sp temp = gc::As<Bignum_sp>(_clasp_big_gcd(x.fixnump()?Bignum_O::create(x.unsafe_fixnum()):gc::As<Bignum_sp>(x), y.fixnump()?Bignum_O::create(y.unsafe_fixnum()):gc::As<Bignum_sp>(y)));
+  Bignum_sp temp = gc::As<Bignum_sp>(Bignum_O::gcd(x.fixnump()?Bignum_O::create(x.unsafe_fixnum()):gc::As<Bignum_sp>(x), y.fixnump()?Bignum_O::create(y.unsafe_fixnum()):gc::As<Bignum_sp>(y)));
   if (temp->fits_sint_p())
     return clasp_make_fixnum(temp->as_int());
   else return temp;

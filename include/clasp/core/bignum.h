@@ -94,7 +94,7 @@ public: // Functions here
   static Bignum_sp magnitude_andn(Bignum_sp a,Bignum_sp b); // |a| & ~|b|
   static Bignum_sp magnitude_iorn(Bignum_sp a, Bignum_sp b); // |a| | ~|b|
   static Bignum_sp magnitude_nand(Bignum_sp a,Bignum_sp b); // ~(|a| & |b|)
-  static Bignum_sp gcd(Bignum_sp a, Bignum_sp b) // greatest common divisor
+  static Bignum_sp gcd(Bignum_sp a, Bignum_sp b); // greatest common divisor
   static Bignum_sp product(Bignum_sp a,Bignum_sp b); // a times b
 
 
@@ -222,7 +222,8 @@ public: // Functions here
   void set(gc::Fixnum val) ;
   void setFixnum(gctools::Fixnum val) {
     this->set_to_fixnum(val);};
-  Bignum_sp abs_() const;
+  Number_sp abs_() const;
+  Bignum_sp abs_big_() const;
   Number_sp sqrt_() const;
   Number_sp reciprocal_() const;
   Number_sp rational_() const final { return this->asSmartPtr(); };
@@ -255,14 +256,23 @@ public: // Functions here
     mpn_copyi(negated->limbs,this->limbs,abs(this->numberoflimbs));
     return negated;
   };
-  
+  inline Bignum_sp negate_in_place()
+  {
+    this->numberoflimbs=-this->numberoflimbs;
+    return this->asSmartPtr();
+  };
+  inline Bignum_sp abs_in_place()
+  {
+    this->numberoflimbs=abs(this->numberoflimbs);
+    return this->asSmartPtr();
+  };
 
-  virtual Number_sp oneMinus_() {
+  Bignum_sp _big_oneMinus() { // Actually returns a Bignum_sp - so don't return this directly, because it may fit in a fixnum
     GC_ALLOCATE_VARIADIC(Bignum_O,decremented);
-    if(this->numberoflimbs>0){
+    if(this->numberoflimbs>0){ // greater than 0
       decremented->realloc_limbs(this->numberoflimbs);
       if(mpn_sub_1(decremented->limbs,this->limbs,this->numberoflimbs,1))//we had to borrow, so 
-        return Bignum_O::create((Fixnum) -1); //we must actually have -1.
+        SIMPLE_ERROR(BF("Unreachable point in _big_oneMinus")); //we must actually have -1.
       else return decremented->normalize();
     }
     else if(this->numberoflimbs<0){
@@ -277,12 +287,12 @@ public: // Functions here
     }
     else return Bignum_O::create((Fixnum) -1);
   };
-  virtual Number_sp onePlus_() {
+  Bignum_sp _big_onePlus() { // As above.
     GC_ALLOCATE_VARIADIC(Bignum_O,incremented);
     if(this->numberoflimbs>0){ //positive
       incremented->realloc_limbs(this->numberoflimbs);
       if(mpn_add_1(incremented->limbs,this->limbs,this->numberoflimbs,1)){
-        //we overflowed, so need to reallocate. this way is slightly wasteful
+        //we overflowed, so need to reallocate. this way is slightly wasteful, but unlikely
         incremented->realloc_limbs(this->numberoflimbs+1);
         mpn_zero(incremented->limbs,incremented->numberoflimbs);
         incremented->limbs[incremented->numberoflimbs-1]=1;
@@ -295,7 +305,7 @@ public: // Functions here
       incremented->realloc_limbs(-this->numberoflimbs);
       if(mpn_sub_1(incremented->limbs,this->limbs,abs(this->numberoflimbs),1)){
         // we had to borrow, so we are actually zero and the result must be +1. very rare(?)
-        return Bignum_O::create((Fixnum) 1);
+        SIMPLE_ERROR(BF("Unreachable point in _big_onePlus"));
       }
       else return incremented->normalize();
     }
@@ -313,6 +323,7 @@ public: // Functions here
   /*! Return the value shifted by BITS bits.
 	  If BITS < 0 shift right, if BITS >0 shift left. */
   virtual Integer_sp shift_(gc::Fixnum bits) const ;
+  Bignum_sp shift_big(gc::Fixnum bits) const;
   
   virtual string valueAsString() const {
     stringstream ss;

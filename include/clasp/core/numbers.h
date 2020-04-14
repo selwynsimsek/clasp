@@ -291,11 +291,9 @@ namespace core {
     /*! Return a Cons (integer low high) */
     static T_sp makeIntegerType(gc::Fixnum low, gc::Fixnum high);
     static Integer_sp create(gctools::Fixnum v);
-    static Integer_sp create(const string &v) {
-      return Integer_O::create(v.c_str());
-    };
+    static Integer_sp create(const string &v); 
     static Integer_sp create(const char *v) {
-      SIMPLE_ERROR(BF("implement Integer_O::create"));
+      SIMPLE_ERROR(BF("implement Integer_O::create for c string"));
     };
 
     static Integer_sp create( int8_t v);
@@ -316,16 +314,6 @@ namespace core {
 #endif
     static Integer_sp create( uint64_t v );
 
-    // THOSE ARE ALREADY DEFINED ABOVE
-    // static Integer_sp create( short v );
-    // static Integer_sp create( unsigned short v );
-    //
-    // static Integer_sp create( int v );
-    // static Integer_sp create( unsigned int v );
-    //
-    // static Integer_sp create( long v );
-    // static Integer_sp create( unsigned long v );
-    //
 #if !defined( CLASP_LONG_LONG_IS_INT64 )
     static Integer_sp create( long long v );
 #endif

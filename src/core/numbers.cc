@@ -191,6 +191,10 @@ Real_sp clasp_min2(Real_sp x, Real_sp y) {
     min = y;
   return min;
 }
+Integer_sp Integer_O::create(const string &v)
+{
+  return Bignum_O::make(v)->maybe_as_fixnum();
+}
 
 CL_LAMBDA(min &rest nums);
 CL_DECLARE();
@@ -274,7 +278,7 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
       Bignum_sp b2=Bignum_O::create(nb.unsafe_fixnum());
       if(!b1->minusp_()){
         if(!b2->minusp_()){ // b1>=0,b2>=0
-          return _clasp_big_add_magnitude(b1,b2)->maybe_as_fixnum();
+          return Bignum_O::magnitude_sum(b1,b2)->maybe_as_fixnum();
         }
         else{ //b1>=0,b2<0
             
@@ -291,7 +295,7 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
       Bignum_sp b2=gc::As<Bignum_sp>(nb);
       if(!b1->minusp_()){
         if(!b2->minusp_()){ // b1>=0,b2>=0
-          return _clasp_big_add_magnitude(b1,b2)->maybe_as_fixnum();
+          return Bignum_O::magnitude_sum(b1,b2)->maybe_as_fixnum(); // possibly don't need a fixnum check?
         }
         else{ //b1>=0,b2<0
             
@@ -448,11 +452,11 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       Bignum_sp bb=Bignum_O::create(nb.unsafe_fixnum());
       if(!ba->minusp_()){
         if(!bb->minusp_()){ //a>=0,b>=0
-          if(_clasp_compare_big(ba,bb)>0){
-            return _clasp_big_difference_magnitude(ba,bb)->normalize()->negate_();
+          if(Bignum_O::compare(ba,bb)>0){
+            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place();
           }
-          else{
-            return _clasp_big_difference_magnitude(ba,bb)->normalize();
+          else{ // a>b
+            return Bignum_O::magnitude_difference(ba,bb);
           }
         }
         else{
@@ -994,7 +998,7 @@ int basic_compare(Number_sp na, Number_sp nb) {
        // return 0;   //return 1;
       //SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
       // convert everything to a bignum at first
-      int result=_clasp_compare_big(gc::As<Bignum_sp>(nb),Bignum_O::create(na.unsafe_fixnum()));
+      int result=Bignum_O::compare(gc::As<Bignum_sp>(nb),Bignum_O::create(na.unsafe_fixnum()));
       if(result>0)return 1; //_clasp_compare_big has the opposite sign convention
       if(result==0)return 0;
       return -1;
@@ -1039,7 +1043,7 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //  return -1;
       //if (za == zb)
       //  return 0;return 1;
-      int cmp_result=_clasp_compare_big(gc::As<Bignum_sp>(na),Bignum_O::create(nb.unsafe_fixnum())); //need to convert to a bignum in order to compare
+      int cmp_result=Bignum_O::compare(gc::As<Bignum_sp>(na),Bignum_O::create(nb.unsafe_fixnum())); //need to convert to a bignum in order to compare
       if(cmp_result>0)return -1;
       else if(cmp_result==0)return 0;
       /*else if(cmp_result<0)*/return 1;
@@ -1052,7 +1056,7 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //if (za == zb)
       //  return 0;
       //if (za > zb)   return 1;
-      int cmp_result=_clasp_compare_big(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
+      int cmp_result=Bignum_O::compare(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
       if(cmp_result>0)return -1;
       else if(cmp_result==0)return 0;
       /*else if(cmp_result<0)*/return 1;
@@ -1290,7 +1294,7 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
       //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return (za == zb);
       //SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
-      return _clasp_compare_big(gc::As_unsafe<Bignum_sp>(na),gc::As_unsafe<Bignum_sp>(nb))==0;
+      return Bignum_O::compare(gc::As_unsafe<Bignum_sp>(na),gc::As_unsafe<Bignum_sp>(nb))==0;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -1487,7 +1491,7 @@ __attribute__((optnone)) Rational_sp Rational_O::create(Integer_sp num, Integer_
   ASSERT(!big_denominator->zerop_());
   if (big_denominator->zerop_())
     ERROR_DIVISION_BY_ZERO(num,denom);
-  if(_clasp_compare_big(big_denominator,Bignum_O::create((Fixnum)1))){ //denominator=/=1
+  if(Bignum_O::compare(big_denominator,Bignum_O::create((Fixnum)1))){ //denominator=/=1
     GC_ALLOCATE(Bignum_O,quotient);
     GC_ALLOCATE(Bignum_O,remainder);
     if(abs(big_numerator->numberoflimbs)>=abs(big_denominator->numberoflimbs)){
