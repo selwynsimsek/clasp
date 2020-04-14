@@ -42,7 +42,7 @@ CL_PKG_NAME(CorePkg,make-bignum);
 CL_DEFUN Bignum_sp Bignum_O::make(const string &value_in_string, unsigned int base) {
   GC_ALLOCATE(Bignum_O, bn);
   bn->setFromString(value_in_string,base);
-  return gc::As<Bignum_sp>(bn->normalize()->maybe_as_fixnum());
+  return bn->normalize();
 };
 
 __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
@@ -73,17 +73,16 @@ LongLongInt Bignum_O::as_LongLongInt_() const {
   SIMPLE_ERROR(BF("Implement as_LongLongInt_ for %s") % this->__repr__());
 }
 
-Integer_sp Bignum_O::maybe_as_fixnum() {
+__attribute__((optnone)) Integer_sp Bignum_O::maybe_as_fixnum() {
   //std::cout << "in maybe_as_fixnum \n";
-  if(this->numberoflimbs >= 1){
-    if(this->numberoflimbs ==1 && this->limbs[0] <= MOST_POSITIVE_FIXNUM)
+  //this->debug_print();
+  if(this->numberoflimbs ==1 && this->limbs[0] <= MOST_POSITIVE_FIXNUM){
  //can check to see if less than 2^62 using an or
+   // std::cout << "making a fixnum " << make_fixnum(this->limbs[0]) ;
       return make_fixnum(this->limbs[0]);
   }
-  if (this->numberoflimbs <= -1){
     if((this->numberoflimbs==-1) && this->limbs[0] <= MOST_POSITIVE_FIXNUM+1)
       return make_fixnum(-((Fixnum)this->limbs[0]));
-  }
   if(this->numberoflimbs == 0)
     return make_fixnum(0);
   return this->asSmartPtr();
@@ -299,13 +298,13 @@ __attribute__((optnone)) void Bignum_O::setFromString(const string &value_in_str
   unsigned char* c_out_string = (unsigned char*)malloc(sizeof(unsigned char)*value_in_string.length());
   if(c_string[0]!='-'){
     for(int i=0;i<value_in_string.length();i++){
-      c_out_string[i]=(unsigned char)(c_string[i]-((i<=10)?'0':'A')); // string not in ASCII. put a bounds check here?
+      c_out_string[i]=(unsigned char)(c_string[i]-(('0'<=c_string[i] && c_string[i] <= '9')?'0':'A')); // string not in ASCII. put a bounds check here?
     }  
     this->numberoflimbs=mpn_set_str(this->limbs,c_out_string,value_in_string.length(),base);
   }
   else{
     for(int i=1;i<value_in_string.length();i++){
-      c_out_string[i-1]=(unsigned char)(c_string[i]-((i<=10)?'0':'A')); // string not in ASCII. put a bounds check here?
+      c_out_string[i-1]=(unsigned char)(c_string[i]-(('0'<=c_string[i] && c_string[i] <= '9')?'0':'A')); // string not in ASCII. put a bounds check here?
     }  
     this->numberoflimbs=-mpn_set_str(this->limbs,c_out_string,value_in_string.length()-1,base);
   }

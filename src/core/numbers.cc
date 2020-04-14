@@ -1294,7 +1294,7 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
       //mpz_class &zb = gc::As<Bignum_sp>(nb)->ref();return (za == zb);
       //SIMPLE_ERROR(BF("case_Bignum_v_Bignum"));
-      return Bignum_O::compare(gc::As_unsafe<Bignum_sp>(na),gc::As_unsafe<Bignum_sp>(nb))==0;
+      return Bignum_O::compare(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb))==0;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -3104,7 +3104,7 @@ Fixnum clasp_to_fixnum( core::Integer_sp x )
     //LIKELY_if ( bx->mpz_ref()>=gc::most_negative_fixnum && bx->mpz_ref() <= gc::most_positive_fixnum) {
     //  return static_cast<size_t>(bx->mpz_ref().get_si());
     T_sp pointer;
-    if((pointer=gc::As_unsafe<Bignum_sp>(x)->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
+    if((pointer=gc::As<Bignum_sp>(x)->maybe_as_fixnum()).fixnump())return pointer.unsafe_fixnum();
     
   }
   TYPE_ERROR( x, Cons_O::createList(cl::_sym_Integer_O, make_fixnum(gc::most_negative_fixnum), make_fixnum(gc::most_positive_fixnum)));

@@ -122,7 +122,7 @@ public: // Functions here
       result->set_to_fixnum(integer.unsafe_fixnum());
       return result;
     }
-    else return gc::As_unsafe<Bignum_sp>(integer);
+    else return gc::As<Bignum_sp>(integer);
   };
 
 #if !defined( CLASP_LONG_LONG_IS_INT64 )
