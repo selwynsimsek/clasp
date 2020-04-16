@@ -679,25 +679,24 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
     else icur_big= gc::As<Bignum_sp>(icur);
     switch (operation) {
      case boole_and:
-         if(acc_bignum->numberoflimbs!=0)
            //mpn_and_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
            //std::cout << "should have done a proper and here\n";
-           acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_and,acc_bignum,icur_big));
+         acc_bignum=Bignum_O::as_bignum(log_operation_2op(boole_and,acc_bignum,icur_big));
          break;
      case boole_xor:
          //mpz_xor(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
-         acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_xor,acc_bignum,icur_big));
+         acc_bignum=Bignum_O::as_bignum(log_operation_2op(boole_xor,acc_bignum,icur_big));
          break;
     case boole_ior:
          //mpz_ior(temp.get_mpz_t(),  acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
          //if(acc_bignum->numberoflimbs!=0)mpn_ior_n(acc_bignum->limbs,acc_bignum->limbs,icur_big->limbs,abs(acc_bignum->numberoflimbs)); // this is broken
                                       
-        acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_ior,acc_bignum,icur_big));
+        acc_bignum=Bignum_O::as_bignum(log_operation_2op(boole_ior,acc_bignum,icur_big));
         break;
      case boole_eqv:
     //     mpz_xor(temp1.get_mpz_t(), acc_bignum.get_mpz_t(), clasp_to_mpz(icur).get_mpz_t());
     //     mpz_com(temp.get_mpz_t(), temp1.get_mpz_t());
-         acc_bignum=gc::As<Bignum_sp>(log_operation_2op(boole_eqv,acc_bignum,icur_big));
+         acc_bignum=Bignum_O::as_bignum(log_operation_2op(boole_eqv,acc_bignum,icur_big));
          break;
     default:
         SIMPLE_ERROR(BF("Unknown operation in cl__log_operation_rest"));

@@ -639,17 +639,7 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() * gc::As<Bignum_sp>(nb)->ref());
       Bignum_sp big_a=gc::As<Bignum_sp>(na);
       Bignum_sp big_b=gc::As<Bignum_sp>(nb);
-      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
-      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs + sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
-      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
-        Bignum_sp temp = big_a;
-        big_a=big_b;
-        big_b=temp;
-      }
-      mpn_mul(multiply_result->limbs,
-              big_a->limbs,abs(big_a->numberoflimbs),
-              big_b->limbs,abs(big_b->numberoflimbs));
-      return multiply_result;
+      return Bignum_O::product(big_a,big_b);
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -999,9 +989,9 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
       // convert everything to a bignum at first
       int result=Bignum_O::compare(gc::As<Bignum_sp>(nb),Bignum_O::create(na.unsafe_fixnum()));
-      if(result>0)return 1; //_clasp_compare_big has the opposite sign convention
+      if(result>0)return -1; //_clasp_compare_big has the opposite sign convention
       if(result==0)return 0;
-      return -1;
+      return 1;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {

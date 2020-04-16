@@ -116,7 +116,7 @@ public: // Functions here
     return b;
   };
 
-  static Bignum_sp as_bignum(Integer_sp integer){
+  __attribute__((optnone))  static Bignum_sp as_bignum(Integer_sp integer){
     if(integer.fixnump()){
       GC_ALLOCATE(Bignum_O,result);
       result->set_to_fixnum(integer.unsafe_fixnum());
@@ -176,16 +176,18 @@ public: // Functions here
   void set_to_signed_long_int(signed long int i) {
     SIMPLE_ERROR(BF("implement set_to_signed_long_int"));} ;
   void set_to_fixnum(gc::Fixnum i) {
-    this->numberoflimbs = ( i>0)? (sizeof(gc::Fixnum))/sizeof(mp_limb_t) :
-      -(sizeof(gc::Fixnum))/sizeof(mp_limb_t);
-    this->limbs = (mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-    if(i<0){
-      this->limbs[0]=(mp_limb_t)(-i);
-    }
+    if(i==0)this->numberoflimbs=0;
     else{
-      this->limbs[0]=(mp_limb_t)i;
-    } // need to fix this
-    } ;
+      this->numberoflimbs = ( i>0)?1:-1;
+      this->limbs = (mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
+      if(i<0){
+        this->limbs[0]=(mp_limb_t)(-i);
+      }
+      else{
+        this->limbs[0]=(mp_limb_t)i;
+      } // need to fix this
+    }
+  };
   inline Bignum_sp normalize(){ // Ensure that |numberoflimbs| is not too large.
     if(this->numberoflimbs>0){
       while(this->limbs[numberoflimbs-1]==0 && this->numberoflimbs>0)
