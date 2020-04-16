@@ -298,12 +298,21 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
           return Bignum_O::magnitude_sum(b1,b2)->maybe_as_fixnum(); // possibly don't need a fixnum check?
         }
         else{ //b1>=0,b2<0
-            
+          if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
+            return Bignum_O::magnitude_difference(b1,b2)->negate_();
+          }
+          else return Bignum_O::magnitude_difference(b1,b2);
         }
       } else{
         if(!b2->minusp_()){ // b1<0,b2>=0
+          if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
+            return Bignum_O::magnitude_difference(b1,b2)->negate_();
+          }
+          else return Bignum_O::magnitude_difference(b1,b2);
+          
         }
         else{// b1<0,b2<0
+          return Bignum_O::magnitude_sum(b1,b2)->negate_();
         }
       }
     }
@@ -450,8 +459,8 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
      // mpz_class zc = gc::As<Bignum_sp>(na)->ref() - zb; return Integer_O::create(zc);
       Bignum_sp ba=gc::As<Bignum_sp>(na);
       Bignum_sp bb=Bignum_O::create(nb.unsafe_fixnum());
-      if(!ba->minusp_()){
-        if(!bb->minusp_()){ //a>=0,b>=0
+      if(!ba->minusp_()) {
+        if(!bb->minusp_()) { //a>=0,b>=0
           if(Bignum_O::compare(ba,bb)>0){
             return Bignum_O::magnitude_difference(ba,bb)->negate_in_place();
           }
@@ -462,7 +471,7 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
         else{
         }
       }
-      else{
+      else {
         if(!bb->minusp_()){
         }
         else{
@@ -472,7 +481,34 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() - gc::As<Bignum_sp>(nb)->ref());
       //SIMPLE_ERROR(BF("implement case_Bignum__v_Bignum"));
       // a -b
-      
+      Bignum_sp ba=gc::As<Bignum_sp>(na);
+      Bignum_sp bb=gc::As<Bignum_sp>(nb);
+      if(!ba->minusp_()) {
+        if(!bb->minusp_()) { //a>=0,b>=0
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place();
+          }
+          else{ // a>b
+            return Bignum_O::magnitude_difference(ba,bb);
+          }
+        }
+        else{ // a>=0,b<=0
+          return Bignum_O::magnitude_sum(ba,bb);
+        }
+      }
+      else {
+        if(!bb->minusp_()){ // a<=0,b>=0
+          return Bignum_O::magnitude_sum(ba,bb)->negate_();
+        }
+        else{ // a<=0,b<=0
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb);
+          }
+          else{ // |a|>|b|
+            return Bignum_O::magnitude_difference(ba,bb)->negate_();
+          }
+        }
+      }
       
     }
   case_Bignum_v_SingleFloat:

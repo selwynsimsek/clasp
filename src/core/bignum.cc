@@ -332,27 +332,45 @@ Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
   // so shifting has no effect
   if(bits < 0){ // right shift
     bits=-bits;
+    bool change_rounding_p=false;
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
+    if(abs(this->numberoflimbs)<=(bits/GMP_LIMB_BITS))return Bignum_O::create((Fixnum)0);
     shifted->realloc_limbs(abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS));
     if(bits & (GMP_LIMB_BITS-1)){ // need to shift the limbs
-      mpn_rshift(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)-
-                 (bits/GMP_LIMB_BITS),
-                 (bits)& (GMP_LIMB_BITS -1));
+      mp_limb_t shifted_bits=
+        mpn_rshift(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)-
+                   (bits/GMP_LIMB_BITS),
+                   (bits)& (GMP_LIMB_BITS -1));
+      change_rounding_p=(shifted_bits >> (GMP_LIMB_BITS - 1));
     }
-    else mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)
-                    -(bits/GMP_LIMB_BITS));
+    else {
+      mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)
+                -(bits/GMP_LIMB_BITS));
+      change_rounding_p=( (this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)])
+                          >> (GMP_LIMB_BITS - 1));
+        }
     if(this->numberoflimbs > 0)
       return shifted->normalize();
-    else return shifted->_big_onePlus()->negate_in_place(); // already normalized
+    else{ // arithmetic right shift rounds downwards for negative numbers
+      shifted->negate_in_place();
+      shifted->normalize();
+      //std::cout << "change_rounding_p is " << change_rounding_p << "\n";
+// Fix the assignment of change_rounding_p
+      
+      if(change_rounding_p)return shifted->_big_oneMinus();
+      else return shifted; // already normalized
+    }
   }
   else if (bits >0){ // left shift
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
-    shifted->realloc_limbs(abs(this->numberoflimbs)+(bits/GMP_LIMB_BITS));
+    shifted->realloc_limbs(abs(this->numberoflimbs)+(bits/GMP_LIMB_BITS)+1);
     if(bits & (GMP_LIMB_BITS-1)){
-      mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs),
-                 bits & (GMP_LIMB_BITS -1));
+      shifted->limbs[abs(this->numberoflimbs)+(bits/GMP_LIMB_BITS)]=
+        mpn_lshift(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs),
+                   bits & (GMP_LIMB_BITS -1));
     }
     else mpn_copyi(shifted->limbs+(bits/GMP_LIMB_BITS),this->limbs,abs(this->numberoflimbs));
+    shifted->normalize();
     if(this->numberoflimbs < 0)shifted->negate_in_place();
     return shifted;
   }
