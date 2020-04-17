@@ -778,7 +778,7 @@ CL_DEFUN Number_sp contagen_div(Number_sp na, Number_sp nb) {
   case_Bignum_v_Fixnum:
   case_Fixnum_v_Bignum:
   case_Bignum_v_Bignum://  return Rational_O::create(clasp_to_mpz(na), clasp_to_mpz(nb));
-    return Rational_O::create(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
+    return Rational_O::create(Bignum_O::as_bignum(gc::As<Integer_sp>(na)),Bignum_O::as_bignum(gc::As<Integer_sp>(nb)));
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio:
     return Rational_O::create(gc::As<Integer_sp>(contagen_mul(na, gc::As<Ratio_sp>(nb)->denominator())),

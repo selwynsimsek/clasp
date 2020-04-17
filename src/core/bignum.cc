@@ -272,8 +272,17 @@ float Bignum_O::as_float_() const {
 }
 
 double Bignum_O::as_double_() const {
-  
-  SIMPLE_ERROR(BF("implement as_double_"));
+  if(this->numberoflimbs==0)return 1.0;
+  double acc = 0.0f;//this->numberoflimbs<0? -1.0f : 1.0f;
+  for(int i=abs(this->numberoflimbs)-1;i>=0;i--){
+    acc*=powf(2.0f,GMP_LIMB_BITS);
+    acc+=((double)this->limbs[i]);
+    //acc*=powf(2.0f,GMP_LIMB_BITS);
+  }
+  acc*=this->numberoflimbs<0?-1.0:1.0;
+  //std::cout << this->__repr__();
+  //std::cout << "float was " << acc << "\n...\n";
+  return acc;
 }
 
 LongFloat Bignum_O::as_long_float_() const {
@@ -563,7 +572,7 @@ int Bignum_O::compare(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, nega
   return (a->numberoflimbs>0)?-cmp_result:cmp_result;
 };
 
-Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp b){
+__attribute__((optnone)) Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp b){
   //Returns a Bignum_sp |a| & |b|.
   GC_ALLOCATE(Bignum_O,result);
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
@@ -571,10 +580,12 @@ Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp b){
     a=b;
     b=temp;
   }
-  result->realloc_limbs(a->numberoflimbs); 
+  result->realloc_limbs(abs(a->numberoflimbs)); 
   if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_and_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  //mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
+  mpn_and_n(result->limbs,a->limbs,b->limbs,abs(b->numberoflimbs));
+  result->normalize();
+  //result->debug_print();
   return result;
 }
 
@@ -586,10 +597,11 @@ Bignum_sp Bignum_O::magnitude_ior(Bignum_sp a,Bignum_sp b){
     a=b;
     b=temp;
   }
-  result->realloc_limbs(a->numberoflimbs); 
+  result->realloc_limbs(abs(a->numberoflimbs)); 
   if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
   mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
   mpn_ior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  result->normalize();
   return result;
 }
 
@@ -611,30 +623,41 @@ Bignum_sp Bignum_O::magnitude_xor(Bignum_sp a,Bignum_sp b){
 Bignum_sp Bignum_O::magnitude_andn(Bignum_sp a,Bignum_sp b){
   //Returns a Bignum_sp |a| & ~|b|.
   GC_ALLOCATE(Bignum_O,result);
+  bool flip=false;
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
     Bignum_sp temp=a;
     a=b;
     b=temp;
+    flip=true;
   }
-  result->realloc_limbs(a->numberoflimbs); 
+  result->realloc_limbs(abs(a->numberoflimbs)); 
   if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
   mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_andn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  if(flip)
+    mpn_andn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  else mpn_andn_n(result->limbs,result->limbs,a->limbs,abs(a->numberoflimbs));
+  //mpn_andn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  result->normalize();
   return result;
 }
 
 Bignum_sp Bignum_O::magnitude_iorn(Bignum_sp a,Bignum_sp b){
   //Returns a Bignum_sp |a| | ~|b|.
   GC_ALLOCATE(Bignum_O,result);
+  bool flip=false;
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
     Bignum_sp temp=a;
     a=b;
     b=temp;
+    flip=true;
   }
-  result->realloc_limbs(a->numberoflimbs); 
+  result->realloc_limbs(abs(a->numberoflimbs)); 
   if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
   mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_iorn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  if(flip)
+    mpn_iorn_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
+  else mpn_iorn_n(result->limbs,result->limbs,a->limbs,abs(a->numberoflimbs));
+  result->normalize();
   return result;
 }
 
