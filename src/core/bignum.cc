@@ -79,12 +79,12 @@ __attribute__((optnone)) Integer_sp Bignum_O::maybe_as_fixnum() {
   if(this->numberoflimbs ==1 && this->limbs[0] <= MOST_POSITIVE_FIXNUM){
  //can check to see if less than 2^62 using an or
    // std::cout << "making a fixnum " << make_fixnum(this->limbs[0]) ;
-      return make_fixnum(this->limbs[0]);
+    return immediate_fixnum<Fixnum_O>(this->limbs[0]);
   }
     if((this->numberoflimbs==-1) && this->limbs[0] <= MOST_POSITIVE_FIXNUM+1)
-      return make_fixnum(-((Fixnum)this->limbs[0]));
+      return immediate_fixnum<Fixnum_O>(-((Fixnum)this->limbs[0]));
   if(this->numberoflimbs == 0)
-    return make_fixnum(0);
+    return immediate_fixnum<Fixnum_O>(0);
   return this->asSmartPtr();
 }
 
