@@ -52,9 +52,6 @@ class Bignum_O : public Integer_O {
 public: // Simple default ctor/dtor
   DEFAULT_CTOR_DTOR(Bignum_O);
 
-public: // ctor/dtor for classes with shared virtual base
-  //	void initialize();
-
 public: // instance variables here
   // =====
   // Fast Bignum specification: (selwyn 6 apr 2020)
@@ -96,7 +93,6 @@ public: // Functions here
   static Bignum_sp magnitude_nand(Bignum_sp a,Bignum_sp b); // ~(|a| & |b|)
   static Bignum_sp gcd(Bignum_sp a, Bignum_sp b); // greatest common divisor
   static Bignum_sp product(Bignum_sp a,Bignum_sp b); // a times b
-
 
 #if !defined( CLASP_FIXNUM_IS_INT64 )
 
@@ -173,19 +169,13 @@ public: // Functions here
   /*! Return true if the number fits in a signed int */
   bool fits_sint_p();
 
-  void set_to_signed_long_int(signed long int i) {
-    SIMPLE_ERROR(BF("implement set_to_signed_long_int"));} ;
   void set_to_fixnum(gc::Fixnum i) {
     if(i==0)this->numberoflimbs=0;
     else{
       this->numberoflimbs = ( i>0)?1:-1;
       this->limbs = (mp_limb_t*)GC_MALLOC(abs(this->numberoflimbs)*sizeof(mp_limb_t));
-      if(i<0){
-        this->limbs[0]=(mp_limb_t)(-i);
-      }
-      else{
-        this->limbs[0]=(mp_limb_t)i;
-      } // need to fix this
+      if(i<0) this->limbs[0]=(mp_limb_t)(-i);
+      else this->limbs[0]=(mp_limb_t)i; // need to deal with limbs being smaller than fixnums
     }
   };
   inline Bignum_sp normalize(){ // Ensure that |numberoflimbs| is not too large.
@@ -202,18 +192,6 @@ public: // Functions here
   void set_to_unsigned_long_int(unsigned long int i) {
     this->realloc_limbs(1);
     this->limbs[0]=i;
-  };
-  
-
-  virtual void increment() {
-    Bignum_sp incf=gc::As<Bignum_sp>(this->onePlus_());
-    this->realloc_limbs(incf->numberoflimbs);
-    mpn_copyi(this->limbs,incf->limbs,abs(incf->numberoflimbs));
-  };
-  virtual void decrement() {
-    Bignum_sp decf=gc::As<Bignum_sp>(this->oneMinus_());
-    this->realloc_limbs(decf->numberoflimbs);
-    mpn_copyi(this->limbs,decf->limbs,abs(decf->numberoflimbs));
   };
   
   string description() const {
@@ -376,12 +354,8 @@ public: // Functions here
 
   void sxhash_(HashGenerator &hg) const;
 
-  virtual bool evenp_() const {
-    return this->numberoflimbs==0 || !(1 & this->limbs[0]);
-  };
-  virtual bool oddp_() const {
-    return (this->numberoflimbs!=0) && ( 1 & this->limbs[0]);
-  };
+  virtual bool evenp_() const { return this->numberoflimbs==0 || !(1 & this->limbs[0]); };
+  virtual bool oddp_() const { return (this->numberoflimbs!=0) && ( 1 & this->limbs[0]); };
 
   Number_sp log1() const;
 
