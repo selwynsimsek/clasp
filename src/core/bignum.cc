@@ -337,6 +337,7 @@ gc::Fixnum Bignum_O::bit_length_() const {
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
+  //std::cout << "(ash " << this->__repr__() << " " << bits << ")";
   if(this->numberoflimbs==0)return Bignum_O::create((Fixnum)0); // we are zero,
   // so shifting has no effect
   if(bits < 0){ // right shift
@@ -366,8 +367,9 @@ Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
       //std::cout << "change_rounding_p is " << change_rounding_p << "\n";
 // Fix the assignment of change_rounding_p
       
-      if(change_rounding_p)return shifted->_big_oneMinus();
-      else return shifted; // already normalized
+      //if(change_rounding_p)
+        return shifted->_big_oneMinus();
+      //else return shifted; // already normalized
     }
   }
   else if (bits >0){ // left shift
