@@ -80,7 +80,7 @@ public: // instance variables here
 public: // Functions here
   static Bignum_sp make(const string &value_in_string, unsigned int base=10);
 
-  // New bignum API. These won't return immediate fixnums even if they can.
+  // New bignum API. These won't return immediate fixnums even if the result can fit in one.
   
   static Bignum_sp magnitude_sum(Bignum_sp a,Bignum_sp b); // |a| + |b|
   static Bignum_sp magnitude_difference(Bignum_sp a,Bignum_sp b); // | |b| - |a| |
@@ -91,8 +91,8 @@ public: // Functions here
   static Bignum_sp magnitude_and(Bignum_sp a, Bignum_sp b); // |a| & |b|
   static Bignum_sp magnitude_ior(Bignum_sp a, Bignum_sp b);
   static Bignum_sp magnitude_xor(Bignum_sp a, Bignum_sp b); // |a| ^ |b|
-  static Bignum_sp magnitude_andn(Bignum_sp a,Bignum_sp b); // |a| & ~|b|
-  static Bignum_sp magnitude_iorn(Bignum_sp a, Bignum_sp b); // |a| | ~|b|
+  static Bignum_sp magnitude_andn(Bignum_sp a,Bignum_sp b); // ? not sure about ordering
+  static Bignum_sp magnitude_iorn(Bignum_sp a, Bignum_sp b); // ? not sure about ordering
   static Bignum_sp magnitude_nand(Bignum_sp a,Bignum_sp b); // ~(|a| & |b|)
   static Bignum_sp gcd(Bignum_sp a, Bignum_sp b); // greatest common divisor
   static Bignum_sp product(Bignum_sp a,Bignum_sp b); // a times b
@@ -215,7 +215,7 @@ public: // Functions here
     this->realloc_limbs(decf->numberoflimbs);
     mpn_copyi(this->limbs,decf->limbs,abs(decf->numberoflimbs));
   };
-  //virtual Number_sp copy() const;
+  
   string description() const {
     stringstream ss;
     ss << this->__repr__(); // good use of __repr__ ?
@@ -246,10 +246,9 @@ public: // Functions here
     return copy->normalize();
   };
 
-  virtual bool zerop_() const {
-    return (this->numberoflimbs==0); } 
-  virtual bool plusp_() const { return this->numberoflimbs>0; }
-  virtual bool minusp_() const { return this->numberoflimbs<0; }
+  virtual bool zerop_() const { return (this->numberoflimbs==0); } 
+  virtual bool plusp_() const { return (this->numberoflimbs>0); }
+  virtual bool minusp_() const { return (this->numberoflimbs<0); }
 
   virtual Number_sp negate_() const
   {
@@ -369,16 +368,9 @@ public: // Functions here
   // TODO: Code Cleanup: Replace with newer translation functions above
   // frgo, 2016-09-06
 
-  virtual gc::Fixnum as_int_() const;
-  virtual int64_t as_int64_() const;
-  virtual uint64_t as_uint64_() const;
-  string as_uint64_string() const;
 
-  virtual LongLongInt as_LongLongInt_() const;
-  virtual unsigned long long as_unsigned_long_long_() const;
   virtual float as_float_() const;
   virtual double as_double_() const;
-  virtual LongFloat as_long_float_() const;
 
   // --- END OF TRANSLATION METHODS ---
 
@@ -426,28 +418,13 @@ inline Integer_sp fixnum_to_bignum(Fixnum fixnum){
 }
 
   void clasp_big_register_free(Bignum_sp x);
-
-  //Integer_sp _clasp_fix_divided_by_big(const Fixnum &x, const Bignum &y);
-  //Integer_sp _clasp_big_divided_by_fix(const Bignum &x, const Fixnum &y);
-  //Integer_sp _clasp_big_divided_by_big(const Bignum &x, const Bignum &y);
-
   Integer_sp _clasp_big_gcd(Bignum_sp x, Bignum_sp y);
-
-
 
 inline T_sp _clasp_maybe_as_fixnum(Bignum_sp num){
   if(num.fixnump())return make_fixnum(num.unsafe_fixnum());
   return num;
 }
 
-
-
-//#define CLASP_BIGNUM_SIZE(x) ((x)->_mp_size)
-//#define CLASP_BIGNUM_ABS_SIZE(x) \
-//  (CLASP_BIGNUM_SIZE(x) < 0 ? -CLASP_BIGNUM_SIZE(x) : CLASP_BIGNUM_SIZE(x))
-
-  /*! Parse a cstring to a Bignum */
-   //Bignum CStrToBignum(const char* c);
 };
 
 #endif /* _bignum_H_ */
