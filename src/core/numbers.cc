@@ -278,15 +278,24 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
       Bignum_sp b2=Bignum_O::create(nb.unsafe_fixnum());
       if(!b1->minusp_()){
         if(!b2->minusp_()){ // b1>=0,b2>=0
-          return Bignum_O::magnitude_sum(b1,b2)->maybe_as_fixnum();
+          return Bignum_O::magnitude_sum(b1,b2)->maybe_as_fixnum(); // possibly don't need a fixnum check?
         }
         else{ //b1>=0,b2<0
-            
+          if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(b1,b2)->negate_())->maybe_as_fixnum();
+          }
+          else return Bignum_O::magnitude_difference(b1,b2)->maybe_as_fixnum();
         }
       } else{
         if(!b2->minusp_()){ // b1<0,b2>=0
+          if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(b1,b2)->negate_())->maybe_as_fixnum();
+          }
+          else return Bignum_O::magnitude_difference(b1,b2)->maybe_as_fixnum();
+          
         }
         else{// b1<0,b2<0
+          return gc::As<Bignum_sp>(Bignum_O::magnitude_sum(b1,b2)->negate_())->maybe_as_fixnum();
         }
       }
     }
@@ -299,20 +308,20 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
         }
         else{ //b1>=0,b2<0
           if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
-            return Bignum_O::magnitude_difference(b1,b2)->negate_();
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(b1,b2)->negate_())->maybe_as_fixnum();
           }
-          else return Bignum_O::magnitude_difference(b1,b2);
+          else return Bignum_O::magnitude_difference(b1,b2)->maybe_as_fixnum();
         }
       } else{
         if(!b2->minusp_()){ // b1<0,b2>=0
           if(Bignum_O::compare(b1,gc::As<Bignum_sp>(b2->negate_())) > 0){ //|b1| < |b2|
-            return Bignum_O::magnitude_difference(b1,b2)->negate_();
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(b1,b2)->negate_())->maybe_as_fixnum();
           }
-          else return Bignum_O::magnitude_difference(b1,b2);
+          else return Bignum_O::magnitude_difference(b1,b2)->maybe_as_fixnum();
           
         }
         else{// b1<0,b2<0
-          return Bignum_O::magnitude_sum(b1,b2)->negate_();
+          return gc::As<Bignum_sp>(Bignum_O::magnitude_sum(b1,b2)->negate_())->maybe_as_fixnum();
         }
       }
     }
@@ -417,27 +426,34 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
   case_Fixnum_v_Bignum : {
       //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
       //mpz_class zc = za - gc::As<Bignum_sp>(nb)->ref(); return Integer_O::create(zc);
-      Fixnum fa = unbox_fixnum(gc::As<Fixnum_sp>(na));
-      Bignum_sp bb = gc::As<Bignum_sp>(nb);
-      if(fa==0)return bb->negate_();
-      GC_ALLOCATE_VARIADIC(Bignum_O,result);
-      if(bb->numberoflimbs>0){ //b positive
-        result->realloc_limbs(bb->numberoflimbs+1);
-        if(fa>0){ // a positive
-          
+      Bignum_sp bb=gc::As<Bignum_sp>(nb);
+      Bignum_sp ba=Bignum_O::create(na.unsafe_fixnum());
+      if(!ba->minusp_()) {
+        if(!bb->minusp_()) { //a>=0,b>=0
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place()->maybe_as_fixnum();
+          }
+          else{ // a>b
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
+          }
         }
-        else { //a negative
-          result->limbs[abs(bb->numberoflimbs)]=
-            mpn_add_1(result->limbs,bb->limbs,abs(bb->numberoflimbs),-fa);
+        else{ // a>=0,b<=0
+          return Bignum_O::magnitude_sum(ba,bb)->maybe_as_fixnum();
         }
-        return result;
       }
-      else if(bb->numberoflimbs<0){ //b negative
-        result->realloc_limbs(bb->numberoflimbs-1);
-        return result;
+      else {
+        if(!bb->minusp_()){ // a<=0,b>=0
+          return gc::As<Bignum_sp>(Bignum_O::magnitude_sum(ba,bb)->negate_())->maybe_as_fixnum();
         }
-      else return Bignum_O::create(fa);
-      return result;
+        else{ // a<=0,b<=0
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
+          }
+          else{ // |a|>|b|
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(ba,bb)->negate_())->maybe_as_fixnum();
+          }
+        }
+      }
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -461,20 +477,28 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       Bignum_sp bb=Bignum_O::create(nb.unsafe_fixnum());
       if(!ba->minusp_()) {
         if(!bb->minusp_()) { //a>=0,b>=0
-          if(Bignum_O::compare(ba,bb)>0){
-            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place();
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place()->maybe_as_fixnum();
           }
           else{ // a>b
-            return Bignum_O::magnitude_difference(ba,bb);
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
           }
         }
-        else{
+        else{ // a>=0,b<=0
+          return Bignum_O::magnitude_sum(ba,bb)->maybe_as_fixnum();
         }
       }
       else {
-        if(!bb->minusp_()){
+        if(!bb->minusp_()){ // a<=0,b>=0
+          return gc::As<Bignum_sp>(Bignum_O::magnitude_sum(ba,bb)->negate_())->maybe_as_fixnum();
         }
-        else{
+        else{ // a<=0,b<=0
+          if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
+          }
+          else{ // |a|>|b|
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(ba,bb)->negate_())->maybe_as_fixnum();
+          }
         }
       }
     }
@@ -486,26 +510,26 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       if(!ba->minusp_()) {
         if(!bb->minusp_()) { //a>=0,b>=0
           if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
-            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place();
+            return Bignum_O::magnitude_difference(ba,bb)->negate_in_place()->maybe_as_fixnum();
           }
           else{ // a>b
-            return Bignum_O::magnitude_difference(ba,bb);
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
           }
         }
         else{ // a>=0,b<=0
-          return Bignum_O::magnitude_sum(ba,bb);
+          return Bignum_O::magnitude_sum(ba,bb)->maybe_as_fixnum();
         }
       }
       else {
         if(!bb->minusp_()){ // a<=0,b>=0
-          return Bignum_O::magnitude_sum(ba,bb)->negate_();
+          return gc::As<Bignum_sp>(Bignum_O::magnitude_sum(ba,bb)->negate_())->maybe_as_fixnum();
         }
         else{ // a<=0,b<=0
           if(Bignum_O::compare(ba->abs_big_(),bb->abs_big_())>0){ // |a| < |b|
-            return Bignum_O::magnitude_difference(ba,bb);
+            return Bignum_O::magnitude_difference(ba,bb)->maybe_as_fixnum();
           }
           else{ // |a|>|b|
-            return Bignum_O::magnitude_difference(ba,bb)->negate_();
+            return gc::As<Bignum_sp>(Bignum_O::magnitude_difference(ba,bb)->negate_())->maybe_as_fixnum();
           }
         }
       }
@@ -621,7 +645,7 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       mpn_mul(multiply_result->limbs,
               big_a->limbs,abs(big_a->numberoflimbs),
               big_b->limbs,abs(big_b->numberoflimbs));
-      return multiply_result;
+      return multiply_result->normalize()->maybe_as_fixnum();
     }
   case_Fixnum_v_Bignum : {
       //mpz_class za(GMP_LONG(unbox_fixnum(gc::As<Fixnum_sp>(na))));
@@ -640,7 +664,7 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       mpn_mul(multiply_result->limbs,
               big_a->limbs,abs(big_a->numberoflimbs),
               big_b->limbs,abs(big_b->numberoflimbs));
-      return multiply_result;
+      return multiply_result->normalize()->maybe_as_fixnum();
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -660,22 +684,12 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       //mpz_class zc = gc::As<Bignum_sp>(na)->ref() * zb;return Integer_O::create(zc);
       Bignum_sp big_a=gc::As<Bignum_sp>(na);
       Bignum_sp big_b=Bignum_O::create(nb.unsafe_fixnum());
-      GC_ALLOCATE_VARIADIC(Bignum_O,multiply_result);
-      multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs + sgn(big_b->numberoflimbs)*big_a->numberoflimbs);
-      if(abs(big_a->numberoflimbs)<abs(big_b->numberoflimbs)){
-        Bignum_sp temp = big_a;
-        big_a=big_b;
-        big_b=temp;
-      }
-      mpn_mul(multiply_result->limbs,
-              big_a->limbs,abs(big_a->numberoflimbs),
-              big_b->limbs,abs(big_b->numberoflimbs));
-      return multiply_result;
+      return Bignum_O::product(big_a,big_b)->normalize()->maybe_as_fixnum();
     }
   case_Bignum_v_Bignum : {//return Integer_O::create(gc::As<Bignum_sp>(na)->ref() * gc::As<Bignum_sp>(nb)->ref());
       Bignum_sp big_a=gc::As<Bignum_sp>(na);
       Bignum_sp big_b=gc::As<Bignum_sp>(nb);
-      return Bignum_O::product(big_a,big_b);
+      return Bignum_O::product(big_a,big_b)->normalize()->maybe_as_fixnum();
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
@@ -692,9 +706,15 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
       SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      //Ratio_sp ra = gc::As<Ratio_sp>(na);
-      //Ratio_sp rb = gc::As<Ratio_sp>(nb);return Rational_O::create(ra->numerator_as_mpz() * rb->numerator_as_mpz(), ra->denominator_as_mpz() * rb->denominator_as_mpz());
-      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
+      Ratio_sp ra = gc::As<Ratio_sp>(na);
+      Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      //r//eturn Rational_O::create(ra->numerator_as_mpz() * rb->numerator_as_mpz(), ra->denominator_as_mpz() * rb->denominator_as_mpz());
+      return Rational_O::create(Bignum_O::product(Bignum_O::as_bignum(ra->numerator()),
+                                                  Bignum_O::as_bignum(rb->numerator())),
+                                Bignum_O::product(Bignum_O::as_bignum(ra->denominator()),
+                                                  Bignum_O::as_bignum(rb->denominator())));
+      
+      //SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:

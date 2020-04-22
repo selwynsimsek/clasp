@@ -62,11 +62,11 @@ __attribute__((optnone)) Bignum_sp Bignum_O::create(gc::Fixnum i){
 
 __attribute__((optnone)) Integer_sp Bignum_O::maybe_as_fixnum() {
   if(this->numberoflimbs ==1 && this->limbs[0] <= MOST_POSITIVE_FIXNUM) //can check to see if less than 2^62 using an or
-    return immediate_fixnum<Fixnum_O>(this->limbs[0]); 
+    return clasp_make_fixnum(this->limbs[0]); 
   else if((this->numberoflimbs==-1) && this->limbs[0] <= MOST_POSITIVE_FIXNUM+1)
-    return immediate_fixnum<Fixnum_O>(-((Fixnum)this->limbs[0]));
+    return clasp_make_fixnum(-((Fixnum)this->limbs[0]));
   else if(this->numberoflimbs == 0)
-    return immediate_fixnum<Fixnum_O>(0);
+    return clasp_make_fixnum(0);
   return this->asSmartPtr();
 }
 
@@ -330,13 +330,19 @@ Integer_sp Bignum_O::shift_(gc::Fixnum bits) const{
 string Bignum_O::__repr__() const {
   
   stringstream ss;
-  unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs)*GMP_LIMB_BITS* (int)ceil(log(2)/log(10)));
-  mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs));
-  if(this->numberoflimbs<0)ss << "-";
-  for(int i=0;i<stringlength;i++){
-    ss << (char)(rawcstring[i]+'0');
+  if(this->numberoflimbs==0)
+  {
+    ss << ((char)'0');
   }
-  free(rawcstring);
+  else{
+    unsigned char* rawcstring=(unsigned char*)malloc(abs(this->numberoflimbs)*GMP_LIMB_BITS* (int)ceil(log(2)/log(10)));
+    mp_size_t stringlength=mpn_get_str(rawcstring,10,this->limbs,abs(this->numberoflimbs));
+    if(this->numberoflimbs<0)ss << "-";
+    for(int i=0;i<stringlength;i++){
+      ss << (char)(rawcstring[i]+'0');
+    }
+    free(rawcstring);
+  }
   return ((ss.str()));
 }
 
@@ -464,6 +470,8 @@ int Bignum_O::compare(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, nega
 
 __attribute__((optnone)) Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp b){
   //Returns a Bignum_sp |a| & |b|.
+  if(a->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
+  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
   GC_ALLOCATE(Bignum_O,result);
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
     Bignum_sp temp=a;
@@ -481,6 +489,8 @@ __attribute__((optnone)) Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp
 
 Bignum_sp Bignum_O::magnitude_ior(Bignum_sp a,Bignum_sp b){
   //Returns a Bignum_sp |a| | |b|.
+  if(b->numberoflimbs==0)return a->copy_();
+  if(a->numberoflimbs==0)return b->copy_();
   GC_ALLOCATE(Bignum_O,result);
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){
     Bignum_sp temp=a;
@@ -488,7 +498,6 @@ Bignum_sp Bignum_O::magnitude_ior(Bignum_sp a,Bignum_sp b){
     b=temp;
   }
   result->realloc_limbs(abs(a->numberoflimbs)); 
-  if(b->numberoflimbs==0)return Bignum_O::create((Fixnum)0);
   mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
   mpn_ior_n(result->limbs,a->limbs,result->limbs,abs(a->numberoflimbs));
   result->normalize();
@@ -511,7 +520,9 @@ Bignum_sp Bignum_O::magnitude_xor(Bignum_sp a,Bignum_sp b){
 }
 
 Bignum_sp Bignum_O::magnitude_andn(Bignum_sp a,Bignum_sp b){
-  //Returns a Bignum_sp |a| & ~|b|.
+  //Returns a Bignum_sp |a| & ~|b|. no??
+  if(a->numberoflimbs==0)return b->copy_();
+  if(b->numberoflimbs==0)return b->copy_();
   GC_ALLOCATE(Bignum_O,result);
   bool flip=false;
   if(abs(a->numberoflimbs)<abs(b->numberoflimbs)){

@@ -438,9 +438,16 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     else b1 = gc::As<Bignum_sp>(first);
     if(second.fixnump())b2=Bignum_O::create(second.unsafe_fixnum());
     else b2 = gc::As<Bignum_sp>(second);
+    //std::cout << "(" << operation << " " << b1->__repr__() << " " << b2->__repr__() << ")\n";
     switch (operation) { // We make use here of binary identities
       //in the sign-magnitude representation.
     case boole_and:
+        if(b1->zerop_() || b2->zerop_()){
+          //std::cout << "returning 0\n";
+          //gc::Fixnum result;
+          //result=0;
+          return clasp_make_fixnum(0);
+        }
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
             return Bignum_O::magnitude_and(b1,b2)->maybe_as_fixnum();
@@ -480,7 +487,7 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
     case boole_ior:
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
-            return Bignum_O::magnitude_ior(b1,b2)->normalize()->maybe_as_fixnum();
+            return Bignum_O::magnitude_ior(b1,b2)->maybe_as_fixnum();
           }
           else{ //b1>=0,b2<0
             return gc::As<Bignum_sp>(Bignum_O::magnitude_andn(b1,b2->abs_big_()->_big_oneMinus())
@@ -543,11 +550,11 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
           }
         } else{
           if(!b1->minusp_()){ // b1<0,b2>=0
-            return Bignum_O::magnitude_and(b2->abs_big_()->_big_oneMinus(),b1);
+            return Bignum_O::magnitude_and(b2->abs_big_()->_big_oneMinus(),b1)->maybe_as_fixnum();
           }
           else{// b1<0,b2<0
             return Bignum_O::magnitude_andn(b1->abs_big_()->_big_oneMinus(),
-                                            b2->abs_big_()->_big_oneMinus());
+                                            b2->abs_big_()->_big_oneMinus())->maybe_as_fixnum();
           }
         }
         
@@ -732,7 +739,7 @@ Integer_sp log_operation_rest(List_sp integers, boole_ops operation) {
   if (acc_fixnum_p)
     return Integer_O::create(acc_fixnum);
   else 
-    return acc_bignum;
+    return acc_bignum->normalize()->maybe_as_fixnum();
     //return Integer_O::create(acc_bignum);
 }
 

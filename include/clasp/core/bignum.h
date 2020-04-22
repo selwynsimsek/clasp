@@ -220,6 +220,7 @@ public: // Functions here
   {
     GC_ALLOCATE_VARIADIC(Bignum_O,copy);
     copy->realloc_limbs(this->numberoflimbs);
+    if(this->numberoflimbs==0)return copy;
     mpn_copyi(copy->limbs,this->limbs,abs(this->numberoflimbs));
     return copy->normalize();
   };
