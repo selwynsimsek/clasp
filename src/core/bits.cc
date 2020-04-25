@@ -504,6 +504,18 @@ Integer_sp log_operation_2op(boole_ops operation, Integer_sp first, Integer_sp s
         }
         break;
     case boole_eqv:
+        if(b1->zerop_()){
+          if(b2->plusp_())
+            return gc::As<Bignum_sp>(b2->_big_onePlus()->negate_())->normalize()->maybe_as_fixnum();
+          else return gc::As<Bignum_sp>(b2->_big_onePlus()->abs_big_())->normalize()->maybe_as_fixnum();
+        }
+        if(b2->zerop_()){
+          if(b1->plusp_())
+            return gc::As<Bignum_sp>(b1->_big_onePlus()->negate_())->normalize()->maybe_as_fixnum();
+          else return gc::As<Bignum_sp>(b1->_big_onePlus()->abs_big_())->normalize()->maybe_as_fixnum();
+        }
+        if(!Bignum_O::compare(b1,Bignum_O::create((Fixnum)-1)))return b2->copy_();
+        if(!Bignum_O::compare(b2,Bignum_O::create((Fixnum)-1)))return b1->copy_();
         if(!b1->minusp_()){
           if(!b2->minusp_()){ // b1>=0,b2>=0
             return gc::As<Bignum_sp>(Bignum_O::magnitude_xor(b1,b2)->_big_onePlus()->negate_())->maybe_as_fixnum();

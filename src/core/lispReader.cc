@@ -836,13 +836,13 @@ __attribute__((optnone)) T_sp interpret_token_or_throw_reader_error(T_sp sin, To
           //mpz_class z10(num.substr(0, num.size() - 1), 10);
           //return Integer_O::create(z10);
           //std::cout << "trying to read " << num << "in if\n";
-          return Integer_O::create(num.substr(0,num.size() - 1)); //use read base?
+          return Bignum_O::make(num.substr(0,num.size() - 1),read_base)->maybe_as_fixnum(); //use read base?
           //SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num.substr(0, num.size() - 1)));
         } else {
           //mpz_class zbase(num.c_str(), read_base);
           //return Integer_O::create(zbase);
           //std::cout << "trying to read " << num << "in else\n";
-          return Integer_O::create(num);
+          return Bignum_O::make(num,read_base)->maybe_as_fixnum();
           //SIMPLE_ERROR(BF("implement interpret_token without mpz: " + num));
         }
       } catch (std::invalid_argument &arg) {

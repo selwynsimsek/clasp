@@ -372,6 +372,7 @@ and is not adjustable."
   (let* ((hash (logand 127 (si:hash-eql element-type)))
 	 (record (aref *upgraded-array-element-type-cache* hash)))
     (declare (type (integer 0 127) hash))
+    (format t "(logand 127 ~a)~%" (logand 127 (si:hash-eql element-type)))
     (if (and record (eq (car record) element-type))
 	(cdr record)
 	(let ((answer (if (member element-type +upgraded-array-element-types+
@@ -702,8 +703,10 @@ if not possible."
 (defun update-types (type-mask new-tag)
   (maybe-save-types)
   (dolist (i *elementary-types*)
-    (unless (zerop (logand (cdr i) type-mask))
-      (setf (cdr i) (logior new-tag (cdr i))))))
+    (progn
+      (format t "(logand ~a ~a)~%(logior ~a ~a)~%" (cdr i) type-mask new-tag (cdr i)) 
+      (unless (zerop (logand (cdr i) type-mask))
+        (setf (cdr i) (logior new-tag (cdr i)))))))
 
 ;; FIND-TYPE-BOUNDS => (VALUES TAG-SUPER TAG-SUB)
 ;;

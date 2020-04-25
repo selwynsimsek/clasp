@@ -272,37 +272,43 @@ gc::Fixnum Bignum_O::bit_length_() const {
 #endif 
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
-Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
-  //std::cout << "(ash " << this->__repr__() << " " << bits << ")";
+__attribute__((optnone)) Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
+  //std::cout << "(ash " << this->__repr__() << " " << bits << ")\n";
   if(this->numberoflimbs==0)return Bignum_O::create((Fixnum)0); // we are zero,
   // so shifting has no effect
   if(bits < 0){ // right shift
     bits=-bits;
-    bool change_rounding_p=false;
+    mp_limb_t shifted_bits=0;
     GC_ALLOCATE_VARIADIC(Bignum_O,shifted);
     if(abs(this->numberoflimbs)<=(bits/GMP_LIMB_BITS))return Bignum_O::create((Fixnum)0);
     shifted->realloc_limbs(abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS));
     if(bits & (GMP_LIMB_BITS-1)){ // need to shift the limbs
-      mp_limb_t shifted_bits=
+      shifted_bits=
         mpn_rshift(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)-
                    (bits/GMP_LIMB_BITS),
                    (bits)& (GMP_LIMB_BITS -1));
-      change_rounding_p=(shifted_bits >> (GMP_LIMB_BITS - 1));
-    }
+      if(bits>GMP_LIMB_BITS)shifted_bits=(this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)]);
+    } // warning: may still fail in the corner case that this limb is zero! 
     else {
       mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)
                 -(bits/GMP_LIMB_BITS));
-      change_rounding_p=( (this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)])
-                          >> (GMP_LIMB_BITS - 1));
+     shifted_bits=(this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)]);
         }
     if(this->numberoflimbs > 0)
       return shifted->normalize();
     else{ // arithmetic right shift rounds downwards for negative numbers
+      //std::cout << "warning: right shift of a negative integer!\n";
       shifted->negate_in_place();
       shifted->normalize();
       //std::cout << "change_rounding_p is " << change_rounding_p << "\n";
 // Fix the assignment of change_rounding_p
-      
+      if(this->evenp_()){
+        //std::cout << "shifted bits " << shifted_bits << "\n";
+        if(shifted_bits) return  shifted->_big_oneMinus();
+        else{ // how to round here?
+          return shifted;
+        }
+      }
       //if(change_rounding_p)
         return shifted->_big_oneMinus();
       //else return shifted; // already normalized
@@ -406,16 +412,28 @@ Bignum_sp Bignum_O::magnitude_difference(Bignum_sp a, Bignum_sp b){
   //Returns a Bignum_sp | |b| - |a||
   a=a->abs_big_();
   b=b->abs_big_();
-  if(Bignum_O::compare(a,b)>0){
+  if(Bignum_O::compare(a,b)<0){
     Bignum_sp temp=a;
     a=b;
     b=temp;
   }
+  //a->debug_print();
+  //b->debug_print(); // now |b| < |a|
   GC_ALLOCATE(Bignum_O,result);
   result->realloc_limbs(abs(a->numberoflimbs)+1);
-  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs));
-  mpn_sub(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
-  return result->normalize();
+  //result->debug_print();
+  mpn_copyi(result->limbs,b->limbs,abs(b->numberoflimbs)); // |b| is smaller, so copy b into result
+  //result->debug_print();
+  //mpn_sub(result->limbs,a->limbs,abs(a->numberoflimbs)+1,result->limbs,abs(b->numberoflimbs));
+
+//now subtract |result| from |a| and store in |result|
+  
+  mpn_sub(result->limbs,a->limbs,abs(a->numberoflimbs),result->limbs,abs(b->numberoflimbs));
+  //a->debug_print();
+  //b->debug_print();
+  result->normalize();
+  //result->debug_print();
+  return result;//->normalize();
 }
 
 
@@ -465,7 +483,7 @@ int Bignum_O::compare(Bignum_sp a,Bignum_sp b){ // Returns positive if a<b, nega
   if(a->numberoflimbs==0)return 0; //they are both zero
   // have to do a comparison between two non-zero bignums of the same limb length
   int cmp_result=mpn_cmp(a->limbs,b->limbs,abs(a->numberoflimbs));
-  return (a->numberoflimbs>0)?-cmp_result:cmp_result;
+  return (a->numberoflimbs<0)?-cmp_result:cmp_result;
 };
 
 __attribute__((optnone)) Bignum_sp Bignum_O::magnitude_and(Bignum_sp a,Bignum_sp b){
@@ -602,6 +620,8 @@ Bignum_sp Bignum_O::gcd(Bignum_sp x, Bignum_sp y) {
   return result->normalize();
 }
 Bignum_sp Bignum_O::product(Bignum_sp big_a, Bignum_sp big_b){
+  if(big_a->zerop_())return big_a->copy_();
+  if(big_b->zerop_())return big_b->copy_();
   GC_ALLOCATE_VARIADIC(Bignum_O, multiply_result);
   multiply_result->realloc_limbs(sgn(big_a->numberoflimbs) * big_b->numberoflimbs + sgn(big_b->numberoflimbs) * big_a->numberoflimbs);
   if(abs(big_a->numberoflimbs) < abs(big_b->numberoflimbs)){

@@ -1027,6 +1027,7 @@ namespace core {
 
 __attribute__((optnone)) inline Integer_sp clasp_shift(Integer_sp n, Fixnum bits) {
   if (n.fixnump()) {
+    //std::cout << "Shifting the fixnum " << n.unsafe_fixnum() << " by " << bits << "\n";
     if (bits < 0) {
       Fixnum y = n.unsafe_fixnum();
       bits = -bits;

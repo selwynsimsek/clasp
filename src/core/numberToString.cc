@@ -142,6 +142,7 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
       core__bignum_to_string(buffer, bn, base);
       break;
     }
+    StringPushStringCharStar(buffer,"F");
     return buffer;
   } else if (Bignum_sp bi = integer.asOrNull<Bignum_O>()) {
     //std::cout << "in numbertostring";
@@ -162,6 +163,7 @@ CL_DEFUN StrNs_sp core__integer_to_string(StrNs_sp buffer, Integer_sp integer,
   else {
     QERROR_WRONG_TYPE_NTH_ARG(2, base, cl::_sym_integer);
   }
+  StringPushStringCharStar(buffer,"B");
   return buffer;
 }
 

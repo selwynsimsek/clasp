@@ -1,6 +1,7 @@
 src/lisp/kernel/contrib/
 src/lisp/modules/asdf/
 src/mps/
+big-test.lisp
 GPATH
 GRTAGS
 GTAGS
