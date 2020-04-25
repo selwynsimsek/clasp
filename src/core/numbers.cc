@@ -1057,9 +1057,9 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //SIMPLE_ERROR(BF("implement case_Fixnum_v_Bignum"));
       // convert everything to a bignum at first
       int result=Bignum_O::compare(gc::As<Bignum_sp>(nb),Bignum_O::create(na.unsafe_fixnum()));
-      if(result>0)return 1; //_clasp_compare_big has the opposite sign convention
+      if(result>0)return -1; //_clasp_compare_big has the opposite sign convention
       if(result==0)return 0;
-      return -1;
+      return 1;
     }
   case_Fixnum_v_Ratio:
   case_Bignum_v_Ratio : {
@@ -1102,9 +1102,9 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //if (za == zb)
       //  return 0;return 1;
       int cmp_result=Bignum_O::compare(gc::As<Bignum_sp>(na),Bignum_O::create(nb.unsafe_fixnum())); //need to convert to a bignum in order to compare
-      if(cmp_result>0)return -1;
+      if(cmp_result>0)return 1;
       else if(cmp_result==0)return 0;
-      /*else if(cmp_result<0)*/return 1;
+      /*else if(cmp_result<0)*/return -1;
     }
   case_Bignum_v_Bignum : {
       //mpz_class &za = gc::As<Bignum_sp>(na)->ref();
@@ -1115,9 +1115,9 @@ int basic_compare(Number_sp na, Number_sp nb) {
       //  return 0;
       //if (za > zb)   return 1;
       int cmp_result=Bignum_O::compare(gc::As<Bignum_sp>(na),gc::As<Bignum_sp>(nb));
-      if(cmp_result>0)return -1;
+      if(cmp_result>0)return 1;
       else if(cmp_result==0)return 0;
-      /*else if(cmp_result<0)*/return 1;
+      /*else if(cmp_result<0)*/return -1;
     }
   case_Bignum_v_SingleFloat:
   case_Ratio_v_SingleFloat : {
