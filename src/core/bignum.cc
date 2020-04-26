@@ -190,14 +190,25 @@ inline ptrdiff_t Bignum_O::as_ptrdiff_t() const {
 // -- SIZE_T --
 
 inline size_t Bignum_O::as_size_t() const {
-  SIMPLE_ERROR(BF("implement as_size_t"));
+  if(this->numberoflimbs==0)return 0;
+  if(this->numberoflimbs==1 && this->limbs[0]<= gc::most_positive_size)
+    return static_cast<size_t>( this->limbs[0]);
+  //if(this->numberoflimbs==-1 && this->limbs[0]<= (1+gc::most_positive_size))
+  //  return -static_cast<size_t>( this->limbs[0]);
+  std::cout << "warning: size_t conversion probably broken: " << this->__repr__() << "\n";
+  return ((size_t)(9223372036854775808));
+  //SIMPLE_ERROR(BF("too big for a size_t %s" ) % this->__repr__());
 }
 
 // -- SSIZE_T --
 
 inline ssize_t Bignum_O::as_ssize_t() const {
- 
-  SIMPLE_ERROR(BF("implement as_size_t"));
+  if(this->numberoflimbs==0)return 0;
+  if(this->numberoflimbs==1 && this->limbs[0]<= gc::most_positive_ssize)
+    return static_cast<ssize_t>( this->limbs[0]);
+  if(this->numberoflimbs==-1 && this->limbs[0]<= -gc::most_negative_ssize)
+    return -static_cast<ssize_t>( this->limbs[0]);
+  SIMPLE_ERROR(BF("too big for a ssize_t %s" ) % this->__repr__());
 }
 
 // --- ---

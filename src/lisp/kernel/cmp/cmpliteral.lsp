@@ -834,6 +834,7 @@ and  return the sorted values and the constant-table or (values nil nil)."
   "If the object is an immediate object return (values immediate nil).
    Otherwise return (values creator T)."
   (llog "load-time-reference-literal object: ~s~%" object)
+  ;(format t "l-t-r-l ~a ~a ~a~%" object read-only-p toplevelp)
   (let ((immediate-datum (immediate-datum-or-nil object))
         (desired-kind (if toplevelp :literal :transient)))
     (if immediate-datum

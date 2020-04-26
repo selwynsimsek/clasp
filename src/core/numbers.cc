@@ -3508,7 +3508,7 @@ ssize_t clasp_to_ssize_t( core::T_sp x )
 
   Integer_sp sp_i = gc::As< Integer_sp >( x );
   if( sp_i )
-    return sp_i->as_size_t();
+    return sp_i->as_ssize_t();
   else
     SIMPLE_ERROR(BF("Cannot convert uintptr_t to char."));
 }

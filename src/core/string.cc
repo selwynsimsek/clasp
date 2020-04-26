@@ -1141,10 +1141,10 @@ CL_DEFUN T_mv cl__parse_integer(String_sp str, Fixnum start, T_sp end, uint radi
   if (junkAllowed.notnilp() || (cur >= iend) || !sawJunk) {
     // normal exit
     if (numDigits > 0) {
-      SIMPLE_ERROR(BF("implement cl__parse_integer"));
-      //Integer_sp iresult = Integer_O::create(result);
+      //SIMPLE_ERROR(BF("implement cl__parse_integer"));
+      Integer_sp iresult = Bignum_O::make(result.get_str())->maybe_as_fixnum();
       LOG(BF("Returning parse-integer with result = %s  cur = %d") % _rep_(iresult) % cur );
-      //return (Values(iresult, make_fixnum(cur)));
+      return (Values(iresult, make_fixnum(cur)));
     } else {
       //If junk-allowed is false, an error of type parse-error is signaled if substring does not consist entirely of the representation
       // of a signed integer, possibly surrounded on either side by whitespace[1] characters.
