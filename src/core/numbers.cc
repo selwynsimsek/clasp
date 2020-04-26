@@ -358,14 +358,18 @@ CL_DEFUN Number_sp contagen_add(Number_sp na, Number_sp nb) {
       SIMPLE_ERROR(BF("implement case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      //Ratio_sp ra = gc::As<Ratio_sp>(na);
-      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      Ratio_sp ra = gc::As<Ratio_sp>(na);
+      Ratio_sp rb = gc::As<Ratio_sp>(nb);
       // ra.num/ra.den + rb.num/rb.den = (ra.num*rb.den+rb.num*ra.den)/ra.den*rb.den
       //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
       //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
       //z = z1 + z;
       ///z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz();return Rational_O::create(z, z1);
-      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
+      Bignum_sp numerator_a = Bignum_O::as_bignum(ra->numerator());
+      Bignum_sp denominator_a = Bignum_O::as_bignum(ra->denominator());
+      Bignum_sp numerator_b = Bignum_O::as_bignum(rb->numerator());
+      Bignum_sp denominator_b = Bignum_O::as_bignum(rb->denominator());
+      return Rational_O::create(Bignum_O::as_bignum(gc::As<Bignum_sp>(contagen_add(Bignum_O::product(numerator_b,denominator_a),Bignum_O::product(numerator_a,denominator_b)))),Bignum_O::product(denominator_a,denominator_b));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -574,13 +578,18 @@ CL_DEFUN Number_sp contagen_sub(Number_sp na, Number_sp nb) {
       SIMPLE_ERROR(BF("implement case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      //Ratio_sp ra = gc::As<Ratio_sp>(na);
-      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      Ratio_sp ra = gc::As<Ratio_sp>(na);
+      Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      // ra.num/ra.den + rb.num/rb.den = (ra.num*rb.den+rb.num*ra.den)/ra.den*rb.den
       //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
       //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
-      //z = z1 - z;
-      //z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz(); //return Rational_O::create(z, z1);
-      SIMPLE_ERROR(BF("implement case_Ratio_v_Ratio"));
+      //z = z1 + z;
+      ///z1 = ra->denominator_as_mpz() * rb->denominator_as_mpz();return Rational_O::create(z, z1);
+      Bignum_sp numerator_a = Bignum_O::as_bignum(ra->numerator());
+      Bignum_sp denominator_a = Bignum_O::as_bignum(ra->denominator());
+      Bignum_sp numerator_b = Bignum_O::as_bignum(rb->numerator());
+      Bignum_sp denominator_b = Bignum_O::as_bignum(rb->denominator());
+      return Rational_O::create(Bignum_O::as_bignum(gc::As<Bignum_sp>(contagen_sub(Bignum_O::product(numerator_b,denominator_a),Bignum_O::product(numerator_a,denominator_b)))),Bignum_O::product(denominator_a,denominator_b));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -726,7 +735,6 @@ CL_DEFUN Number_sp contagen_mul(Number_sp na, Number_sp nb) {
                                 Bignum_O::product(Bignum_O::as_bignum(ra->denominator()),
                                                   Bignum_O::as_bignum(rb->denominator()))->maybe_as_fixnum());
       
-      //SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -1151,15 +1159,20 @@ int basic_compare(Number_sp na, Number_sp nb) {
       SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));
     }
   case_Ratio_v_Ratio : {
-      //Ratio_sp ra = gc::As<Ratio_sp>(na);
-      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      Ratio_sp ra = gc::As<Ratio_sp>(na);
+      Ratio_sp rb = gc::As<Ratio_sp>(nb);
       //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
       //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();
       //if (z1 < z)
       //  return -1;
       //if (z1 == z)
       //  return 0; return 1;
-      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
+      Bignum_sp d1 = Bignum_O::product(Bignum_O::as_bignum(ra->numerator()),Bignum_O::as_bignum(rb->denominator()));
+      Bignum_sp d2 = Bignum_O::product(Bignum_O::as_bignum(rb->numerator()),Bignum_O::as_bignum(ra->denominator()));
+      int cmp = Bignum_O::compare(d1,d2);
+      if(cmp < 0 ) return -1;
+      if(cmp >0) return 1;
+      return 0;
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
@@ -1373,11 +1386,13 @@ bool basic_equalp(Number_sp na, Number_sp nb) {
       //mpz_class raz = ra->numerator_as_mpz();return raz == z;
       SIMPLE_ERROR(BF("case_Ratio_v_Bignum"));}
   case_Ratio_v_Ratio : {
-      //Ratio_sp ra = gc::As<Ratio_sp>(na);
-      //Ratio_sp rb = gc::As<Ratio_sp>(nb);
+      Ratio_sp ra = gc::As<Ratio_sp>(na);
+      Ratio_sp rb = gc::As<Ratio_sp>(nb);
       //mpz_class z1 = ra->numerator_as_mpz() * rb->denominator_as_mpz();
       //mpz_class z = ra->denominator_as_mpz() * rb->numerator_as_mpz();return (z1 == z);
-      SIMPLE_ERROR(BF("case_Ratio_v_Ratio"));
+      Bignum_sp d1 = Bignum_O::product(Bignum_O::as_bignum(ra->numerator()),Bignum_O::as_bignum(rb->denominator()));
+      Bignum_sp d2 = Bignum_O::product(Bignum_O::as_bignum(rb->numerator()),Bignum_O::as_bignum(ra->denominator()));
+      return (0==Bignum_O::compare(d1,d2));
     }
   case_SingleFloat_v_Fixnum:
   case_SingleFloat_v_Bignum:
