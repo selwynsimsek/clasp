@@ -196,7 +196,7 @@ inline size_t Bignum_O::as_size_t() const {
   //if(this->numberoflimbs==-1 && this->limbs[0]<= (1+gc::most_positive_size))
   //  return -static_cast<size_t>( this->limbs[0]);
   std::cout << "warning: size_t conversion probably broken: " << this->__repr__() << "\n";
-  return ((size_t)(9223372036854775808));
+  return (9223372036854775808ul);
   //SIMPLE_ERROR(BF("too big for a size_t %s" ) % this->__repr__());
 }
 
@@ -281,6 +281,7 @@ gc::Fixnum Bignum_O::bit_length_() const {
 #if (GMP_LIMB_BITS==16)
 #define BIGNUM_LIMB_SHIFT 4
 #endif 
+
 /*! Return the value shifted by BITS bits.
       If BITS < 0 shift right, if BITS >0 shift left. */
 __attribute__((optnone)) Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
@@ -303,8 +304,8 @@ __attribute__((optnone)) Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
     else {
       mpn_copyi(shifted->limbs,this->limbs+(bits/GMP_LIMB_BITS),abs(this->numberoflimbs)
                 -(bits/GMP_LIMB_BITS));
-     shifted_bits=(this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)]);
-        }
+      shifted_bits=(this->limbs[abs(this->numberoflimbs)-(bits/GMP_LIMB_BITS)]);
+    }
     if(this->numberoflimbs > 0)
       return shifted->normalize();
     else{ // arithmetic right shift rounds downwards for negative numbers
@@ -321,7 +322,7 @@ __attribute__((optnone)) Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
         }
       }
       //if(change_rounding_p)
-        return shifted->_big_oneMinus();
+      return shifted->_big_oneMinus();
       //else return shifted; // already normalized
     }
   }
@@ -340,6 +341,7 @@ __attribute__((optnone)) Bignum_sp Bignum_O::shift_big(gc::Fixnum bits) const{
   }
   else return this->copy_();
 }
+
 Integer_sp Bignum_O::shift_(gc::Fixnum bits) const{
   return this->shift_big(bits)->maybe_as_fixnum();
 }
@@ -606,13 +608,21 @@ Bignum_sp Bignum_O::magnitude_nand(Bignum_sp a,Bignum_sp b){
 
 
 Bignum_sp Bignum_O::gcd(Bignum_sp x, Bignum_sp y) {
+  //std::cout << "in bignum gcd\n";
+  //x->debug_print();
+  //y->debug_print();
+  int shift_count=0;
+  if(x->zerop_())return y->copy_()->abs_big_();
+  if(y->zerop_())return x->copy_()->abs_big_();
   while(x->evenp_() && y->evenp_()){ // per mpn_gcd need to ensure that both x and y are not even.
     if(x->zerop_())return y->copy_();
     if(y->zerop_())return x->copy_();
-    Integer_sp newx=x->shift_(-1);
-    Integer_sp newy=y->shift_(-1);
-    x=(newx.fixnump()) ? Bignum_O::create(newx.unsafe_fixnum()) : gc::As<Bignum_sp>(newx);
-    y=(newy.fixnump()) ? Bignum_O::create(newy.unsafe_fixnum()) : gc::As<Bignum_sp>(newy);
+    x=x->shift_big(-1);
+    y=y->shift_big(-1);
+    //std::cout << "dividing by 2\n";
+    shift_count++;
+    //x->debug_print();
+    //y->debug_print();
   }
   if(abs(x->numberoflimbs) < abs(y->numberoflimbs)){
     Bignum_sp temp = x;
@@ -620,7 +630,7 @@ Bignum_sp Bignum_O::gcd(Bignum_sp x, Bignum_sp y) {
     y = temp;
   }
   mp_limb_t* copy_x = (mp_limb_t*)malloc(sizeof(mp_limb_t) * abs(x->numberoflimbs));
-  mp_limb_t* copy_y = (mp_limb_t*)malloc(sizeof(mp_limb_t) * abs(x->numberoflimbs));
+  mp_limb_t* copy_y = (mp_limb_t*)malloc(sizeof(mp_limb_t) * abs(y->numberoflimbs));
   mpn_copyi(copy_x, x->limbs, abs(x->numberoflimbs));
   mpn_copyi(copy_y, y->limbs, abs(y->numberoflimbs));
   GC_ALLOCATE(Bignum_O, result);
@@ -628,7 +638,12 @@ Bignum_sp Bignum_O::gcd(Bignum_sp x, Bignum_sp y) {
   result->numberoflimbs = mpn_gcd(result->limbs, copy_x, abs(x->numberoflimbs), copy_y, abs(y->numberoflimbs));
   free(copy_x);
   free(copy_y);
-  return result->normalize();
+  //std::cout << "result \n";
+  result->normalize();
+  result=result->shift_big(shift_count);
+  result->normalize();
+  //result->debug_print();
+  return result->normalize();            ;
 }
 Bignum_sp Bignum_O::product(Bignum_sp big_a, Bignum_sp big_b){
   if(big_a->zerop_())return big_a->copy_();
