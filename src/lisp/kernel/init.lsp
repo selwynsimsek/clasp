@@ -9,7 +9,6 @@
 #+(or)(setq *features* (cons :dbg-print *features*))
 (SYS:*MAKE-SPECIAL '*echo-repl-tpl-read*)
 (export '(*echo-repl-tpl-read*
-          run-repl
           cons-car
           cons-cdr
           debug-break))
@@ -204,7 +203,9 @@
           quit
           btcl
           ihs-argument
-          with-float-traps-masked))
+          with-float-traps-masked
+          enable-interrupt default-interrupt ignore-interrupt
+          get-signal-handler set-signal-handler))
 (core:*make-special '*module-provider-functions*)
 (core:*make-special '*source-location*)
 (setq *source-location* nil)
@@ -797,17 +798,13 @@ the stage, the +application-name+ and the +bitcode-name+"
 ;;
 
 (export 'core:top-level)
-(defun run-repl ()
-  (if (fboundp 'core:top-level)
-      (progn
-        (maybe-load-clasprc)
-        (core:top-level))
-      (core:low-level-repl)))
 
 #-(or aclasp bclasp cclasp)
 (eval-when (:execute)
   (process-command-line-load-eval-sequence)
-  (bformat t "Low level repl - in init.lsp%N")
+  (if (core:noinform-p)
+      nil
+      (bformat t "Low level repl - in init.lsp%N"))
   (core:low-level-repl))
 
 #-(or bclasp cclasp)

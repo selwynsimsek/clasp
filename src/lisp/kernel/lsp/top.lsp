@@ -329,9 +329,7 @@
         See also: :variables.~%")
   ))
 
-(defparameter *lisp-initialized* nil)
-
-(defun top-level (&optional (process-command-line nil) (set-package nil))
+(defun top-level (&key set-package noprint)
   "Args: ()
 Clasp specific.
 The top-level loop of Clasp. It is called by default when Clasp is invoked."
@@ -342,10 +340,8 @@ The top-level loop of Clasp. It is called by default when Clasp is invoked."
       (when set-package
         (in-package "CL-USER"))
 
-      (setq *lisp-initialized* t)
-
       (let ((*tpl-level* -1))
-	(tpl))
+	(tpl :noprint noprint))
       0)))
 
 #+threads
@@ -474,7 +470,7 @@ Use special code 0 to cancel this operation.")
 
 (defun tpl (&key ((:commands *tpl-commands*) tpl-commands)
 	      ((:prompt-hook *tpl-prompt-hook*) *tpl-prompt-hook*)
-	      (broken-at nil)
+	      noprint
 	      (quiet nil))
   (let* ((*quit-tags* (cons *quit-tag* *quit-tags*))
 	 (*quit-tag* *quit-tags*)	; any unique new value
@@ -511,7 +507,8 @@ Use special code 0 to cancel this operation.")
                      (break-where)
                      (setf quiet t))
                  (setq - (locally (declare (notinline tpl-read))
-                           (tpl-prompt)
+                           (unless noprint
+                             (tpl-prompt))
                            (let ((expr (tpl-read)))
                              (when sys:*echo-repl-tpl-read*
                                (format t "#|REPL echo|# ~s~%" expr))
@@ -520,7 +517,8 @@ Use special code 0 to cancel this operation.")
                                (funcall core:*eval-with-env-hook* - *break-env*)
                                )
                        /// // // / / values *** ** ** * * (car /))
-                 (tpl-print values)))))
+                 (unless noprint
+                   (tpl-print values))))))
           (loop
            (setq +++ ++ ++ + + -)
            (when
@@ -739,9 +737,10 @@ Use special code 0 to cancel this operation.")
 
 (defun break-where ()
   (if (<= *tpl-level* 0)
-      #-threads (format t "~&Top level.~%")
-      #+threads (format t "~&Top level in: ~A.~%" mp:*current-process*)
-    (tpl-print-current)))
+      (unless (core:noinform-p)
+        #-threads (format t "~&Top level.~%")
+        #+threads (format t "~&Top level in: ~A.~%" mp:*current-process*))
+      (tpl-print-current)))
 
 (defun set-current-frame ()
   (setf *break-frame* (clasp-debug:visible *break-frame*))
@@ -977,6 +976,16 @@ See the CLASP-DEBUG package for more information about FRAME objects.")
             (let ((*break-frame* (clasp-debug:visible *break-base*)))
               (tpl :commands debug-commands))))))))
 
+(defun non-debugger (condition)
+  (format *error-output* "~&Condition of type: ~a~%~a~%"
+          (type-of condition) condition)
+  (let ((clasp-debug:*frame-filters* nil))
+    (clasp-debug:print-backtrace :stream *error-output*
+                                 :source-positions t
+                                 :delimited nil))
+  (format *error-output* "~&Unhandled condition with debugger disabled, quitting~%")
+  (core:quit 1))
+
 (defun invoke-debugger (condition)
   ;; call *INVOKE-DEBUGGER-HOOK* first, so that *DEBUGGER-HOOK* is not
   ;; called when the debugger is disabled. We adopt this mechanism
@@ -989,6 +998,9 @@ See the CLASP-DEBUG package for more information about FRAME objects.")
     (when old-hook
       (let ((*debugger-hook* nil))
         (funcall old-hook condition old-hook))))
+  (when (core:debugger-disabled-p)
+    ;; Does not return.
+    (non-debugger condition))
   (locally
     (declare (notinline default-debugger))
     (if (<= 0 *tpl-level*) ;; Do we have a top-level REPL above us?
@@ -1002,18 +1014,3 @@ See the CLASP-DEBUG package for more information about FRAME objects.")
                + ++ +++ - * ** *** / // ///)
           (default-debugger condition))))
   (finish-output))
-
-(defun core::debugger-disabled-hook (condition old-hook)
-  (declare (ignore old-hook))
-  (format *error-output* "~&Condition of type: ~a~%~a~%"
-          (type-of condition) condition)
-  (let ((clasp-debug:*frame-filters* nil))
-    (clasp-debug:print-backtrace :stream *error-output*
-                                 :source-positions t
-                                 :delimited nil))
-  (format *error-output* "~&Unhandled condition with debugger disabled, quitting~%")
-  (core:quit 1))
-
-(eval-when (:execute :load-toplevel)
-  (when (null (core:is-interactive-lisp))
-    (setq ext:*invoke-debugger-hook* 'debugger-disabled-hook)))
