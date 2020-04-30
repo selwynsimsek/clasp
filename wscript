@@ -218,7 +218,6 @@ DEBUG_OPTIONS = [
     "DEBUG_DYNAMIC_BINDING_STACK",  # dynamic variable binding debugging
     "DEBUG_VALUES",   # turn on printing (values x y z) values when core:*debug-values* is not nil
     "DEBUG_IHS",
-    "DEBUG_STACKMAPS", # turn on logging for stackmap code
     "DEBUG_TRACK_UNWINDS",  # Count cc_unwind calls and report in TIME
     "DEBUG_NO_UNWIND",   # debug intrinsics that say they don't unwind but actually do
     "DEBUG_STARTUP",
@@ -232,6 +231,7 @@ DEBUG_OPTIONS = [
     "DISABLE_DEBUG_CCLASP_LISP", # turn OFF debugging frames for cclasp code
     "DEBUG_COUNT_ALLOCATIONS", # count per-thread allocations of instances of classes
     "DEBUG_COMPILER", # Turn on compiler debugging
+    "DEBUG_VERIFY_MODULES", # Verify LLVM modules before using them
     "DEBUG_LONG_CALL_HISTORY",   # The GF call histories used to blow up - this triggers an error if they get too long
     "DEBUG_BOUNDS_ASSERT",  # check bounds 
     "DEBUG_GFDISPATCH",  # debug call history manipulation
@@ -285,7 +285,7 @@ def update_dependencies(cfg):
 #                       "master")
     fetch_git_revision("src/lisp/kernel/contrib/sicl",
                        "https://github.com/Bike/SICL.git",
-                       "c1ca1943bf4354ba01f60e61cb4066c02aef0b38")
+                       "628ef27abda0588563c69fd883c653aae43a0552")
     fetch_git_revision("src/lisp/kernel/contrib/Concrete-Syntax-Tree",
                        "https://github.com/s-expressionists/Concrete-Syntax-Tree.git",
                        "f4100714fd90805ba30221dc8dafa5a99f3cf6a0")

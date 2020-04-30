@@ -20,11 +20,9 @@
                :cleavir-partial-inlining
                :cleavir-remove-useless-instructions
                :cleavir-hir-to-mir
-               :cleavir-basic-blocks
-               :sicl-additional-conditions)
+               :cleavir-basic-blocks)
   :serial t
   :components ((:file "packages")
-                 ;;                 (:file "compile-cclasp")
                (:file "cleavir-fixups-and-hacks")
                (:file "system")
                (:file "policy")

@@ -352,6 +352,7 @@ def collect_bclasp_lisp_files(**kwargs):
         "src/lisp/kernel/clos/inspect",
         "src/lisp/kernel/lsp/fli",
         "src/lisp/kernel/lsp/cas",
+        "src/lisp/kernel/lsp/posix",
         "src/lisp/modules/sockets/sockets",
         "src/lisp/kernel/lsp/top",
         "src/lisp/kernel/tag/pre-epilogue-bclasp",
